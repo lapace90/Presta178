@@ -1,0 +1,10 @@
+{*
+* 2018 - Definima
+*
+* DISCLAIMER
+*
+* @author    Definima <remi@definima.com>
+* @copyright 2018 Definima
+* @license   https://www.tgm-commerce.fr/
+*}
+{$output|escape:'quotes':'UTF-8'}
