@@ -1,4 +1,5 @@
 <?php
+
 /**
  * 2018 - Definima
  *
@@ -209,6 +210,7 @@ class PfProductImporter extends Module
         } else {
             // 0. Main settings
             $output = $this->renderMainSettingsForm();
+            // $output = $this->display(__FILE__, 'views/templates/admin/main_settings.tpl'); // <-- MON TEMPLATE
         }
 
         return $output;
@@ -585,11 +587,12 @@ class PfProductImporter extends Module
                                 $commandecours = $sc->getCommandeEnCours($softwareid, $reference);
                                 $new_stock = $stock - $commandecours;
                                 // $new_stock = ($new_stock < 0) ? 0 : $new_stock;
-                                if (StockAvailable::setQuantity(
-                                    $c['id_product'],
-                                    $c['id_product_attribute'],
-                                    $new_stock
-                                ) === false
+                                if (
+                                    StockAvailable::setQuantity(
+                                        $c['id_product'],
+                                        $c['id_product_attribute'],
+                                        $new_stock
+                                    ) === false
                                 ) {
                                     $output .= 'Quantities update error for combination ' . $c['id_product'] . ' ' .
                                         $reference . ' : ' . $stock_available . ' -> ' . $new_stock . '\n';
@@ -729,464 +732,8 @@ class PfProductImporter extends Module
      */
     public function renderMainSettingsForm()
     {
-        /**
-         * @edit Definima
-         * Type "switch" n'existe pas dans PS 1.5, on le remplace par "radio"
-         */
-        $switch = 'switch';
-        if ($this->isPrestashop15()) {
-            $switch = 'radio';
-        }
-
-        $fields_form = [
-            'form' => [
-                'legend' => [
-                    'title' => $this->l('Settings'),
-                    'icon' => 'icon-cogs',
-                ],
-                'tabs' => [
-                    'general' => $this->l('General'),
-                    'catalog' => $this->l('Catalog'),
-                    'customer' => $this->l('Customers'),
-                    'order' => $this->l('Orders'),
-                    'payment' => $this->l('Payment'),
-                ],
-                'input' => [
-                    [
-                        'type' => 'text',
-                        'label' => $this->l('Feed Url'),
-                        'name' => 'SYNC_CSV_FEEDURL',
-                        'class' => 'lg',
-                        'required' => true,
-                        'tab' => 'general',
-                    ],
-                    [
-                        'type' => 'text',
-                        'label' => $this->l('Software ID'),
-                        'name' => 'PI_SOFTWAREID',
-                        'class' => 'lg',
-                        'required' => true,
-                        'tab' => 'general',
-                    ],
-                    [
-                        'type' => 'text',
-                        'label' => $this->l('Sync quantities from'),
-                        'name' => 'SYNC_STOCK_PDV',
-                        'desc' => $this->l('Leave empty for global quantities.'),
-                        'tab' => 'general',
-                    ],
-                    [
-                        'type' => $switch, // @edit Definima  PS 1.5
-                        'label' => $this->l('Enable periodic update'),
-                        'name' => 'PI_CRON_TASK',
-                        'desc' => $this->l('Last update') . ' '
-                                    . Tools::displayDate(Configuration::get('PI_LAST_CRON'), null, true),
-                        'is_bool' => true, // @edit Definima  PS 1.5
-                        'class' => 't', // @edit Definima  PS 1.5
-                        'values' => [
-                            [
-                                'id' => 'active_on',
-                                'value' => 1,
-                                'label' => $this->l('Enabled'),
-                            ],
-                            [
-                                'id' => 'active_off',
-                                'value' => 0,
-                                'label' => $this->l('Disabled'),
-                            ],
-                        ],
-                        'tab' => 'general',
-                    ],
-                    [
-                        'type' => $switch, // @edit Definima  PS 1.5
-                        'label' => $this->l('Enable product export'),
-                        'name' => 'PI_ALLOW_PRODUCTEXPORT',
-                        'desc' => $this->l('Export products from Prestashop to Rezomatic.'),
-                        'is_bool' => true, // @edit Definima  PS 1.5
-                        'class' => 't', // @edit Definima  PS 1.5
-                        'values' => [
-                            [
-                                'id' => 'active_on',
-                                'value' => 1,
-                                'label' => $this->l('Enabled'),
-                            ],
-                            [
-                                'id' => 'active_off',
-                                'value' => 0,
-                                'label' => $this->l('Disabled'),
-                            ],
-                        ],
-                        'tab' => 'catalog',
-                    ],
-                    [
-                        'type' => $switch, // @edit Definima  PS 1.5
-                        'label' => $this->l('Enable categories export'),
-                        'name' => 'PI_ALLOW_CATEGORYEXPORT',
-                        'desc' => $this->l('Export categories from Prestashop to Rezomatic.'),
-                        'is_bool' => true, // @edit Definima  PS 1.5
-                        'class' => 't', // @edit Definima  PS 1.5
-                        'values' => [
-                            [
-                                'id' => 'active_on',
-                                'value' => 1,
-                                'label' => $this->l('Enabled'),
-                            ],
-                            [
-                                'id' => 'active_off',
-                                'value' => 0,
-                                'label' => $this->l('Disabled'),
-                            ],
-                        ],
-                        'tab' => 'catalog',
-                    ],
-                    [
-                        'type' => 'html',
-                        'name' => 'html_data',
-                        'html_content' => '<hr>',
-                        'tab' => 'catalog',
-                    ],
-                    [
-                        'type' => $switch, // @edit Definima  PS 1.5
-                        'label' => $this->l('Enable product import'),
-                        'name' => 'PI_ALLOW_PRODUCTIMPORT',
-                        'desc' => $this->l('Import products from Rezomatic into Prestashop.'),
-                        'is_bool' => true, // @edit Definima  PS 1.5
-                        'class' => 't', // @edit Definima  PS 1.5
-                        'values' => [
-                            [
-                                'id' => 'active_on',
-                                'value' => 1,
-                                'label' => $this->l('Enabled'),
-                            ],
-                            [
-                                'id' => 'active_off',
-                                'value' => 0,
-                                'label' => $this->l('Disabled'),
-                            ],
-                        ],
-                        'tab' => 'catalog',
-                    ],
-
-                    /*
-                     * @edit Definima
-                     * Configure l'import des images produit
-                     */
-                    [
-                        'type' => $switch,
-                        'label' => $this->l('Enable product image import'),
-                        'name' => 'PI_ALLOW_PRODUCTIMAGEIMPORT',
-                        'desc' => $this->l('Import images of products from Rezomatic into Prestashop.'),
-                        'is_bool' => true,
-                        'class' => 't',
-                        'values' => [
-                            [
-                                'id' => 'active_on',
-                                'value' => 1,
-                                'label' => $this->l('Enabled'),
-                            ],
-                            [
-                                'id' => 'active_off',
-                                'value' => 0,
-                                'label' => $this->l('Disabled'),
-                            ],
-                        ],
-                        'tab' => 'catalog',
-                    ],
-                    [
-                        'type' => $switch,
-                        'label' => $this->l('Enable designation update'),
-                        'name' => 'PI_UPDATE_DESIGNATION',
-                        'desc' => $this->l('Update article designation from Rezomatic to Prestashop.'),
-                        'is_bool' => true,
-                        'class' => 't',
-                        'values' => [
-                            [
-                                'id' => 'active_on',
-                                'value' => 1,
-                                'label' => $this->l('Enabled'),
-                            ],
-                            [
-                                'id' => 'active_off',
-                                'value' => 0,
-                                'label' => $this->l('Disabled'),
-                            ],
-                        ],
-                        'tab' => 'catalog',
-                    ],
-                    [
-                        'type' => $switch, // @edit Definima  PS 1.5
-                        'label' => $this->l('Enable imported products'),
-                        'name' => 'PI_ACTIVE',
-                        'is_bool' => true, // @edit Definima  PS 1.5
-                        'class' => 't', // @edit Definima  PS 1.5
-                        'values' => [
-                            [
-                                'id' => 'active_on',
-                                'value' => 1,
-                                'label' => $this->l('Enabled'),
-                            ],
-                            [
-                                'id' => 'active_off',
-                                'value' => 0,
-                                'label' => $this->l('Disabled'),
-                            ],
-                        ],
-                        'tab' => 'catalog',
-                    ],
-                    [
-                        'type' => 'html',
-                        'name' => 'html_data',
-                        'html_content' => '<hr>',
-                        'tab' => 'catalog',
-                    ],
-                    /*
-                     * @edit Definima
-                     * Configure l'import des soldes
-                     */
-                    [
-                        'type' => $switch,
-                        'label' => $this->l('Enable sales import'),
-                        'name' => 'PI_ALLOW_PRODUCTSALESIMPORT',
-                        'desc' => $this->l('Import sales from Rezomatic to Prestashop per product'),
-                        'is_bool' => true,
-                        'class' => 't',
-                        'values' => [
-                            [
-                                'id' => 'active_on',
-                                'value' => 1,
-                                'label' => $this->l('Enabled'),
-                            ],
-                            [
-                                'id' => 'active_off',
-                                'value' => 0,
-                                'label' => $this->l('Disabled'),
-                            ],
-                        ],
-                        'tab' => 'catalog',
-                    ],
-                    [
-                        'type' => 'text',
-                        'label' => $this->l('Sync sales from'),
-                        'name' => 'PI_SYNC_SALES_PDV',
-                        'desc' => $this->l('Leave empty for global sales.'),
-                        'tab' => 'catalog',
-                    ],
-                    [
-                        'type' => 'html',
-                        'name' => 'html_data',
-                        'html_content' => '<hr>',
-                        'tab' => 'catalog',
-                    ],
-                    [
-                        'type' => 'select',
-                        'label' => $this->l('Product reference field'),
-                        'name' => 'PI_PRODUCT_REFERENCE',
-                        'options' => [
-                            'query' => [
-                                [
-                                    'name' => 'reference',
-                                ],
-                                [
-                                    'name' => 'ean13',
-                                ],
-                                [
-                                    'name' => 'upc',
-                                ],
-                            ],
-                            'id' => 'name',
-                            'name' => 'name',
-                        ],
-                        'tab' => 'catalog',
-                    ],
-                    [
-                        'type' => $switch, // @edit Definima  PS 1.5
-                        'label' => $this->l('Enable customer export'),
-                        'name' => 'PI_ALLOW_CUSTOMEREXPORT',
-                        'desc' => $this->l('Export customers from Prestashop to Rezomatic.'),
-                        'is_bool' => true, // @edit Definima  PS 1.5
-                        'class' => 't', // @edit Definima  PS 1.5
-                        'values' => [
-                            [
-                                'id' => 'active_on',
-                                'value' => 1,
-                                'label' => $this->l('Enabled'),
-                            ],
-                            [
-                                'id' => 'active_off',
-                                'value' => 0,
-                                'label' => $this->l('Disabled'),
-                            ],
-                        ],
-                        'tab' => 'customer',
-                    ],
-                    [
-                        'type' => $switch, // @edit Definima  PS 1.5
-                        'label' => $this->l('Enable customer import'),
-                        'name' => 'PI_ALLOW_CUSTOMERIMPORT',
-                        'desc' => $this->l('Import customers from Rezomatic into Prestashop.'),
-                        'is_bool' => true, // @edit Definima  PS 1.5
-                        'class' => 't', // @edit Definima  PS 1.5
-                        'values' => [
-                            [
-                                'id' => 'active_on',
-                                'value' => 1,
-                                'label' => $this->l('Enabled'),
-                            ],
-                            [
-                                'id' => 'active_off',
-                                'value' => 0,
-                                'label' => $this->l('Disabled'),
-                            ],
-                        ],
-                        'tab' => 'customer',
-                    ],
-                    [
-                        'type' => $switch, // @edit Definima  PS 1.5
-                        'label' => $this->l('Enable order export'),
-                        'name' => 'PI_ALLOW_ORDEREXPORT',
-                        'desc' => $this->l('Export orders from Prestashop to Rezomatic.'),
-                        'is_bool' => true, // @edit Definima  PS 1.5
-                        'class' => 't', // @edit Definima  PS 1.5
-                        'values' => [
-                            [
-                                'id' => 'active_on',
-                                'value' => 1,
-                                'label' => $this->l('Enabled'),
-                            ],
-                            [
-                                'id' => 'active_off',
-                                'value' => 0,
-                                'label' => $this->l('Disabled'),
-                            ],
-                        ],
-                        'tab' => 'order',
-                    ],
-                    [
-                        'type' => $switch, // @edit Definima  PS 1.5
-                        'label' => $this->l('Valid order only'),
-                        'name' => 'PI_VALID_ORDER_ONLY',
-                        'desc' => $this->l('Export only valid (paid) orders from Prestashop to Rezomatic.'),
-                        'is_bool' => true, // @edit Definima  PS 1.5
-                        'class' => 't', // @edit Definima  PS 1.5
-                        'values' => [
-                            [
-                                'id' => 'active_on',
-                                'value' => 1,
-                                'label' => $this->l('Enabled'),
-                            ],
-                            [
-                                'id' => 'active_off',
-                                'value' => 0,
-                                'label' => $this->l('Disabled'),
-                            ],
-                        ],
-                        'tab' => 'order',
-                    ],
-                    /*
-                     * @edit Definima
-                     * Configure l'import des soldes
-                     */
-                    [
-                        'type' => $switch,
-                        'label' => $this->l('Update order status'),
-                        'name' => 'PI_UPDATE_ORDER_STATUS',
-                        'desc' => $this->l('Update order status from Rezomatic'),
-                        'is_bool' => true,
-                        'class' => 't',
-                        'values' => [
-                            [
-                                'id' => 'active_on',
-                                'value' => 1,
-                                'label' => $this->l('Enabled'),
-                            ],
-                            [
-                                'id' => 'active_off',
-                                'value' => 0,
-                                'label' => $this->l('Disabled'),
-                            ],
-                        ],
-                        'tab' => 'order',
-                    ],
-                    [
-                        'type' => 'html',
-                        'name' => 'html_data',
-                        'html_content' => '<hr>',
-                        'tab' => 'order',
-                    ],
-                    [
-                        'type' => 'text',
-                        'label' => $this->l('Payment 1'),
-                        'name' => 'PI_RG1',
-                        'tab' => 'order',
-                    ],
-                    [
-                        'type' => 'text',
-                        'label' => $this->l('Payment 2'),
-                        'name' => 'PI_RG2',
-                        'tab' => 'order',
-                    ],
-                    [
-                        'type' => 'text',
-                        'label' => $this->l('Payment 3'),
-                        'name' => 'PI_RG3',
-                        'tab' => 'order',
-                    ],
-                    [
-                        'type' => 'text',
-                        'label' => $this->l('Payment 4'),
-                        'name' => 'PI_RG4',
-                        'tab' => 'order',
-                    ],
-                    [
-                        'type' => 'text',
-                        'label' => $this->l('Payment 5'),
-                        'name' => 'PI_RG5',
-                        'tab' => 'order',
-                    ],
-                    [
-                        'type' => 'text',
-                        'label' => $this->l('Payment 6'),
-                        'name' => 'PI_RG6',
-                        'tab' => 'order',
-                    ],
-                    [
-                        'type' => 'text',
-                        'label' => $this->l('Payment 7'),
-                        'name' => 'PI_RG7',
-                        'tab' => 'order',
-                    ],
-                    [
-                        'type' => 'text',
-                        'label' => $this->l('Payment 8'),
-                        'name' => 'PI_RG8',
-                        'tab' => 'order',
-                    ],
-                    [
-                        'type' => 'text',
-                        'label' => $this->l('Payment 9'),
-                        'name' => 'PI_RG9',
-                        'tab' => 'order',
-                    ],
-                    [
-                        'type' => 'text',
-                        'label' => $this->l('Payment 10'),
-                        'name' => 'PI_RG10',
-                        'tab' => 'order',
-                    ],
-                ],
-                'submit' => [
-                    'title' => $this->l('Save'),
-                    'name' => 'SubmitSaveMainSettings',
-                    'class' => 'btn btn-default pull-right',
-                ],
-            ],
-        ];
-        $helper = new HelperForm();
-        // $helper->show_toolbar = false;
-        // $helper->table = $this->table;
-        // $lang = new Language((int)Configuration::get('PS_LANG_DEFAULT'));
-        // $helper->default_form_language = $lang->id;
-        $helper->fields_value = [
+        // Récupérer toutes les configurations
+        $config_values = array(
             'SYNC_CSV_FEEDURL' => Configuration::get('SYNC_CSV_FEEDURL'),
             'PI_SOFTWAREID' => Configuration::get('PI_SOFTWAREID'),
             'PI_CRON_TASK' => Configuration::get('PI_CRON_TASK'),
@@ -1215,33 +762,159 @@ class PfProductImporter extends Module
             'PI_RG8' => Configuration::get('PI_RG8'),
             'PI_RG9' => Configuration::get('PI_RG9'),
             'PI_RG10' => Configuration::get('PI_RG10'),
-        ];
+        );
 
-        /*
-         * @edit Definima
-         * Fixes 1.5
-         */
-        if ($this->isPrestashop15()) {
-            $languages = Language::getLanguages(false);
-            foreach ($languages as $k => $language) {
-                $languages[$k]['is_default'] = (int) ($language['id_lang'] == Configuration::get('PS_LANG_DEFAULT'));
+        // Préparer les variables pour le redirect
+        $formatted_url = strstr($_SERVER['REQUEST_URI'], '&vc_mode= ', true);
+        $vc_redirect = ($formatted_url != '') ? $formatted_url : $_SERVER['REQUEST_URI'];
+
+        // Variables pour le mapping
+        $feedid = 1;
+        $feedurl = Configuration::get('SYNC_CSV_FEEDURL');
+        $fixcategory = Tools::getValue('selfixcategory', '');
+
+        // Créer newproductfields (logique de buildMappingFieldsForm)
+        $productfields = Vccsv::getxiProductFields();
+        $productfields[] = 'image_url';
+        $productfields[] = 'product_url';
+        $productfields[] = 'manufacturer';
+        $productfields[] = 'available_date';
+        $productfields[] = 'combination_reference';
+
+        $mylist = array(
+            'name',
+            'id_category_default',
+            'price',
+            'wholesale_price',
+            'reference',
+            'ean13',
+            'upc',
+            'active',
+            'description',
+            'description_short',
+            'image_url',
+            'quantity',
+            'available',
+            'product_url',
+            'manufacturer',
+            'retail_price_new',
+            'ecotax',
+            'weight',
+            'condition',
+            'id_tax_rules_group',
+            'available_date',
+            'combination_reference',
+        );
+
+        $newproductfields = array();
+        $newproductfields[] = 'Ignore Field';
+        foreach ($productfields as $pr) {
+            if (in_array($pr, $mylist)) {
+                $newproductfields[] = $pr;
             }
-
-            $helper->module = $this;
-            $helper->name_controller = 'pfproductimporter';
-            $helper->identifier = $this->identifier;
-            $helper->token = Tools::getAdminTokenLite('AdminModules');
-            $helper->languages = $languages;
-            $helper->currentIndex = AdminController::$currentIndex . '&configure=' . $this->name;
-            $helper->default_form_language = (int) Configuration::get('PS_LANG_DEFAULT');
-            $helper->allow_employee_form_lang = true;
-            $helper->toolbar_scroll = true;
-            // $helper->toolbar_btn = $this->initToolbar();
-            $helper->title = $this->displayName;
-            $helper->submit_action = 'submitUpdatePPI';
         }
 
-        return $helper->generateForm([$fields_form]);
+        // Préparer les données pour le mapping si nécessaire
+        $raw_products_arr = array();
+        $final_products_arr = array();
+
+        // Si on a une URL de feed, récupérer les données pour le mapping
+        if ($feedurl && Tools::strlen($feedurl) > 0) {
+            // Récupérer les données pour le mapping des champs
+            $raw_products_arr = $this->getFieldsFromFeed($feedurl);
+
+            // Récupérer les catégories du feed
+            $fam = Vccsv::getXmlfield('id_category_default');
+            if (empty($fam)) {
+                $fam = 'fam';
+            }
+            $final_products_arr = Vccsv::getCategoriesFromFeed($feedurl, $fam, false);
+        }
+
+        // Groupes d'attributs pour le mapping
+        $attrgrp = array('Ignore Field');
+        if (Combination::isFeatureActive()) {
+            $liste_attrgrp = AttributeGroup::getAttributesGroups(Context::getContext()->cookie->id_lang);
+            foreach ($liste_attrgrp as $attr) {
+                $attrgrp[$attr['id_attribute_group']] = $attr['name'];
+            }
+        }
+
+        // Déterminer l'onglet actif
+        $active_tab = 'general';
+        if (Tools::getValue('active_tab')) {
+            $active_tab = Tools::getValue('active_tab');
+        }
+
+        // Préparer toutes les variables pour le template
+        $this->context->smarty->assign(array(
+            'token' => Tools::getAdminTokenLite('AdminModules'),
+            'configure' => $this->name,
+            'tab_module' => 'payments_gateways',
+            'current_index' => AdminController::$currentIndex,
+            'module_dir' => $this->_path,
+            'module_name' => $this->name,
+            'ps_version' => _PS_VERSION_,
+            'fields_value' => $config_values,
+            'languages' => Language::getLanguages(false),
+            'default_language' => (int)Configuration::get('PS_LANG_DEFAULT'),
+            'last_cron' => Tools::displayDate(Configuration::get('PI_LAST_CRON'), null, true),
+            'submit_action' => 'SubmitSaveMainSettings',
+            'is_ps15' => $this->isPrestashop15(),
+            'active_tab' => $active_tab,
+            'form_action' => AdminController::$currentIndex . '&configure=' . $this->name . '&token=' . Tools::getAdminTokenLite('AdminModules'),
+            'raw_products_arr' => $raw_products_arr,
+            'final_products_arr' => $final_products_arr,
+            // Variables pour le redirect et mapping
+            'vc_redirect' => $vc_redirect,
+            'feedid' => $feedid,
+            'feedurl' => $feedurl,
+            'fixcategory' => $fixcategory,
+            'base_url' => __PS_BASE_URI__,
+            // Variables pour le mapping des champs
+            'newproductfields' => $newproductfields,
+            'attrgrp' => $attrgrp,
+        ));
+
+        return $this->display(__FILE__, 'views/templates/admin/main_settings.tpl');
+    }
+
+    private function getFieldsFromFeed($feedurl)
+    {
+        $raw_products_arr = array();
+
+        if (Tools::substr($feedurl, -5) == '.wsdl' || Tools::substr($feedurl, -4) == '.csv') {
+            try {
+                $softwareid = Configuration::get('PI_SOFTWAREID');
+                $timestamp = date('Y-m-d H:i:s', mktime(0, 0, 0, date('n'), date('j'), date('Y')));
+                $sc = new SoapClient($feedurl, array('keep_alive' => false));
+                $art = $sc->getNewArticles($softwareid, $timestamp, 0);
+
+                if (!empty($art->article)) {
+                    if (is_array($art->article)) {
+                        $articles = $art->article;
+                    } else {
+                        $articles = array($art->article);
+                    }
+
+                    foreach ($articles as $col) {
+                        $raw_products_arr = (array) $col;
+                        break;
+                    }
+
+                    $tmp_arr = array();
+                    foreach ($raw_products_arr as $K => $t) {
+                        $tmp_arr[$K] = $K;
+                    }
+                    $raw_products_arr = $tmp_arr;
+                }
+            } catch (Exception $e) {
+                // En cas d'erreur, retourner un tableau vide
+                $raw_products_arr = array();
+            }
+        }
+
+        return $raw_products_arr;
     }
 
     /**
@@ -1519,7 +1192,8 @@ class PfProductImporter extends Module
                  */
                 // Si codeDeclinaison == reference, c'est le produit de base,
                 // sinon c'est une déclinaison du produit "reference"
-                if ($feedproduct[$tabledata['combination_reference']] != ''
+                if (
+                    $feedproduct[$tabledata['combination_reference']] != ''
                     && $feedproduct[$tabledata['combination_reference']] != '0'
                     && $feedproduct[$tabledata['combination_reference']] !=
                     $feedproduct[$tabledata[Configuration::get('PI_PRODUCT_REFERENCE')]]
@@ -1658,8 +1332,8 @@ class PfProductImporter extends Module
                 $product->$reference_field = $reference;
                 // Ecotax
                 $product->ecotax = (isset($tabledata['ecotax'], $feedproduct[$tabledata['ecotax']]))
-                                    ? ProductVccsv::formatPriceFromWS($feedproduct[$tabledata['ecotax']])
-                                    : 0.000000;
+                    ? ProductVccsv::formatPriceFromWS($feedproduct[$tabledata['ecotax']])
+                    : 0.000000;
                 // Installation de la taxe liée au produit
                 if (isset($tabledata['id_tax_rules_group'])) {
                     // Default Tax
@@ -1689,8 +1363,10 @@ class PfProductImporter extends Module
                 }
 
                 // VCOMK
-                if (isset($tabledata['weight']) && $feedproduct[$tabledata['weight']]
-                    && is_numeric($feedproduct[$tabledata['weight']])) {
+                if (
+                    isset($tabledata['weight']) && $feedproduct[$tabledata['weight']]
+                    && is_numeric($feedproduct[$tabledata['weight']])
+                ) {
                     $product->weight = $feedproduct[$tabledata['weight']];
                 }
 
@@ -1948,9 +1624,11 @@ class PfProductImporter extends Module
                 // Ajout des images dans le tableau des images à traiter
                 //
                 if (Configuration::get('PI_ALLOW_PRODUCTIMAGEIMPORT') == '1') {
-                    if (isset($feedproduct[$tabledata['image_url']])
+                    if (
+                        isset($feedproduct[$tabledata['image_url']])
                         && trim($feedproduct[$tabledata['image_url']]) != ''
-                        && $feedproduct[$tabledata['image_url']] != '0') {
+                        && $feedproduct[$tabledata['image_url']] != '0'
+                    ) {
                         $img_separator = ',';
 
                         $import_images[] = [
@@ -2101,7 +1779,8 @@ class PfProductImporter extends Module
                                 $obj->position = $Attribute::getHigherPosition($attr_infos['id_attribute_group']) + 1;
 
                                 if (($field_error = $obj->validateFields(UNFRIENDLY_ERROR, true)) === true
-                                    && ($lang_field_error = $obj->validateFieldsLang(UNFRIENDLY_ERROR, true)) === true) {
+                                    && ($lang_field_error = $obj->validateFieldsLang(UNFRIENDLY_ERROR, true)) === true
+                                ) {
                                     $obj->add();
                                     $obj->associateTo($shops);
                                     $id_attribute = (int) $obj->id;
@@ -2305,7 +1984,8 @@ class PfProductImporter extends Module
                             // Ajout des images dans le tableau des images à traiter
                             // $this->dump($feedproduct[$tabledata['image_url']], $id_product_attribute);
                             if (Configuration::get('PI_ALLOW_PRODUCTIMAGEIMPORT') == '1') {
-                                if (isset($feedproduct[$tabledata['image_url']])
+                                if (
+                                    isset($feedproduct[$tabledata['image_url']])
                                     && trim($feedproduct[$tabledata['image_url']]) != ''
                                     && $feedproduct[$tabledata['image_url']] != '0'
                                 ) {
@@ -2391,7 +2071,7 @@ class PfProductImporter extends Module
                 echo $this->l('No.of Combination created') . ' : ' . $linecountadded_combinations . '<br/>';
                 echo '-------------------------------------------------<br/>';
                 echo $this->l('No.of Combination updated') . ' : ' .
-                        ($linecount_combinations - $linecountadded_combinations) . '<br/>';
+                    ($linecount_combinations - $linecountadded_combinations) . '<br/>';
                 echo '-------------------------------------------------<br/>';
             }
 
@@ -2650,7 +2330,7 @@ class PfProductImporter extends Module
                         // than the original image
                         if ($tgt_width <= $src_width && $tgt_height <= $src_height) {
                             $path_infos[] = [$tgt_width, $tgt_height, $path . '-' .
-                                Tools::stripslashes($image_type['name']) . '.jpg', ];
+                                Tools::stripslashes($image_type['name']) . '.jpg',];
                         }
                         if ($entity == 'products') {
                             if (is_file(_PS_TMP_IMG_DIR_ . 'product_mini_' . (int) $id_entity . '.jpg')) {
@@ -3447,7 +3127,7 @@ class PfProductImporter extends Module
                     case 2:
                         $new_status = $new_status_orders['preparation'];
                         break;
-                        // Annulée
+                    // Annulée
                     case 3:
                     case 4:
                         $new_status = $new_status_orders['annule'];
