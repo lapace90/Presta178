@@ -1,4 +1,5 @@
 <?php
+
 /**
  * 2018 - Definima
  *
@@ -26,9 +27,7 @@ class Vccsv
      *
      * @return void
      */
-    public function __construct()
-    {
-    }
+    public function __construct() {}
 
     /**
      * getxiProductFields function.
@@ -92,9 +91,12 @@ class Vccsv
         // build category mapping form
         // Get all catgeories of the system
         $id_lang = Context::getContext()->cookie->id_lang;
-        $catdata = '';
         $categories = Category::getCategories((int) $id_lang, true);
+        var_dump($categories); 
+        // die();
+        $catdata = '';
         $cats = self::recurseCategory2($categories, $categories[1][2], 2, 2, $catdata, $_this);
+
         // get xml categories into array
         $fam = Vccsv::getXmlfield('id_category_default');
         if (empty($fam)) {
@@ -294,6 +296,31 @@ class Vccsv
         return $row;
     }
 
+    public static function saveFieldMappings($_this)
+    {
+        $i = 0;
+        // Empty and store the field mappings data in import_feed_fields_csv
+        $qry = 'DELETE FROM `' . _DB_PREFIX_ . 'pfi_import_feed_fields_csv`';
+        Db::getInstance()->execute($qry);
+
+        $fld_map = Tools::getValue('fld_map');
+
+        foreach ($fld_map as $val) {
+            ++$i;
+            if (!Tools::getIsset('sel_' . $i)) {
+                continue;
+            }
+            $system_field = Tools::getValue('sel_' . $i);
+            $xml_field = $val;
+
+            $qry = 'INSERT INTO `' . _DB_PREFIX_ .
+                'pfi_import_feed_fields_csv` (`xml_field`, `system_field`) VALUES ("' .
+                pSQL($xml_field) . '", "' . pSQL($system_field) . '")';
+            Db::getInstance()->execute($qry);
+        }
+        return '';
+    }
+
     /**
      * buildMappingFieldsForm function.
      *
@@ -307,12 +334,18 @@ class Vccsv
         $feedurl = Configuration::get('SYNC_CSV_FEEDURL');
         $softwareid = Configuration::get('PI_SOFTWAREID');
         $timestamp = date('Y-m-d H:i:s', mktime(0, 0, 0, date('n'), date('j'), date('Y')));
+
+        // Champs produits de base
         $productfields = self::getxiProductFields();
+        if (!is_array($productfields)) {
+            $productfields = [];
+        }
         $productfields[] = 'image_url';
         $productfields[] = 'product_url';
         $productfields[] = 'manufacturer';
         $productfields[] = 'available_date';
-        $productfields[] = 'combination_reference'; // @edit Definima  Prise en compte déclinaison
+        $productfields[] = 'combination_reference';
+
         $mylist = [
             'name',
             'id_category_default',
@@ -335,8 +368,9 @@ class Vccsv
             'condition',
             'id_tax_rules_group',
             'available_date',
-            'combination_reference', // @edit Definima  Prise en compte déclinaison
+            'combination_reference',
         ];
+
         $newproductfields = [];
         $newproductfields[] = 'Ignore Field';
         foreach ($productfields as $pr) {
@@ -344,6 +378,7 @@ class Vccsv
                 $newproductfields[] = $pr;
             }
         }
+
         $raw_products_arr = [];
         if (Tools::substr($feedurl, -5) == '.wsdl' || Tools::substr($feedurl, -4) == '.csv') {
             $sc = new SoapClient($feedurl, ['keep_alive' => false]);
@@ -433,6 +468,59 @@ class Vccsv
     public static function utf8EncodeArray($array)
     {
         return $array;
+    }
+
+    /**
+     * getFieldsFromFeed function.
+     *
+     * @static
+     *
+     * @param mixed $feedurl
+     *
+     * @return void
+     */
+    public static function getFieldsFromFeed($feedurl)
+    {
+        $raw_products_arr = array();
+
+        if (Tools::substr($feedurl, -5) == '.wsdl' || Tools::substr($feedurl, -4) == '.csv') {
+            try {
+                $softwareid = Configuration::get('PI_SOFTWAREID');
+                $timestamp = date('Y-m-d H:i:s', mktime(0, 0, 0, date('n'), date('j'), date('Y')));
+                $sc = new SoapClient($feedurl, array('keep_alive' => false));
+                $art = $sc->getNewArticles($softwareid, $timestamp, 0);
+
+                if (!empty($art->article)) {
+                    if (is_array($art->article)) {
+                        $articles = $art->article;
+                    } else {
+                        $articles = array($art->article);
+                    }
+
+                    foreach ($articles as $col) {
+                        $raw_products_arr = (array) $col;
+                        break;
+                    }
+
+                    $tmp_arr = array();
+                    foreach ($raw_products_arr as $K => $t) {
+                        $tmp_arr[$K] = $K;
+                    }
+                    $raw_products_arr = $tmp_arr;
+                }
+            } catch (Exception $e) {
+                // En cas d'erreur, utiliser des valeurs par défaut
+                $raw_products_arr = array(
+                    'codeArt' => 'codeArt',
+                    'taille' => 'taille',
+                    'couleur' => 'couleur',
+                    'dArr' => 'dArr',
+                    'description' => 'description',
+                );
+            }
+        }
+
+        return $raw_products_arr;
     }
 
     /**
@@ -559,16 +647,37 @@ class Vccsv
      */
     public static function recurseCategory2($categories, $current, $id_category, $id_selected, &$data, $_this)
     {
-        $option = str_repeat('-', ($current['infos']['level_depth'] - 1) * 5) .
-            ' ' . Tools::stripslashes($current['infos']['name']);
-        $data .= self::recurseCategory2option($id_category, $option, $_this);
+        $output = array();
+
+        // Ajouter la catégorie courante
+        if (isset($current['infos'])) {
+            $output[] = array(
+                'infos' => array(
+                    'id_category' => $id_category,
+                    'name' => $current['infos']['name'],
+                    'level_depth' => $current['infos']['level_depth']
+                )
+            );
+        }
+
+        // Parcourir les sous-catégories
         if (isset($categories[$id_category])) {
-            foreach (array_keys($categories[$id_category]) as $key) {
-                self::recurseCategory2($categories, $categories[$id_category][$key], $key, $id_selected, $data, $_this);
+            foreach ($categories[$id_category] as $key => $category) {
+                if ($key != 'infos') {
+                    $children = self::recurseCategory2(
+                        $categories,
+                        $category,
+                        $key,
+                        $id_selected,
+                        $data,
+                        $_this
+                    );
+                    $output = array_merge($output, $children);
+                }
             }
         }
 
-        return $data;
+        return $output;
     }
 
     public static function recurseCategory2option($id_category, $option, $_this)
@@ -605,7 +714,7 @@ class Vccsv
     public static function logError($exception)
     {
         return 'Error : <span style="color: red">' . $exception->getMessage() . '</span>\n' .
-                'File : ' . $exception->getFile() . '\n' .
-                'Line : ' . $exception->getLine() . '\n\n';
+            'File : ' . $exception->getFile() . '\n' .
+            'Line : ' . $exception->getLine() . '\n\n';
     }
 }

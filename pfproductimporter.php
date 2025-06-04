@@ -120,8 +120,9 @@ class PfProductImporter extends Module
                 );
                 $output .= $this->renderMainSettingsForm();
             }
-
             return $output;
+        } elseif (Tools::isSubmit('SubmitSaveFields')) {
+            Vccsv::saveFieldMappings($this);
         } elseif (Tools::isSubmit('Submitmapcategory')) {
             // 3. Category Mapping
             $output = Vccsv::buildMappingCategoryForm($this);
@@ -815,18 +816,30 @@ class PfProductImporter extends Module
         }
 
         // Préparer les données pour le mapping si nécessaire
-        $raw_products_arr = array();
+        // Si on a une URL de feed, récupérer les données pour le mapping
         $final_products_arr = array();
 
-        // Si on a une URL de feed, récupérer les données pour le mapping
         if ($feedurl && Tools::strlen($feedurl) > 0) {
             // Récupérer les données pour le mapping des champs
             $raw_products_arr = $this->getFieldsFromFeed($feedurl);
 
+            // Si pas de champs, définir des champs par défaut
+            if (empty($raw_products_arr)) {
+                $raw_products_arr = array(
+                    'codeArt' => 'Code Article',
+                    'taille' => 'Taille',
+                    'couleur' => 'Couleur',
+                    'description' => 'Description',
+                    'dArr' => 'Date de création',
+                );
+            }
+
             // Récupérer les catégories du feed
-            $fam = Vccsv::getXmlfield('id_category_default');
+            $fam = Vccsv::getXmlField('id_category_default');
             if (empty($fam)) {
+
                 $fam = 'fam';
+     
             }
             $final_products_arr = Vccsv::getCategoriesFromFeed($feedurl, $fam, false);
         }
@@ -845,6 +858,18 @@ class PfProductImporter extends Module
         if (Tools::getValue('active_tab')) {
             $active_tab = Tools::getValue('active_tab');
         }
+        // if (Tools::getValue('active_tab') == 'mapping') {
+        //     // Si on est dans l'onglet de mapping, on construit le formulaire de mapping des champs
+        //     return Vccsv::buildMappingCategoryForm($this);
+        // }
+
+        // Récupérer les catégories Prestashop pour affichage dans le select du template
+        $categories = Category::getCategories(
+            (int)Configuration::get('PS_LANG_DEFAULT'),
+            true,
+            false
+        );
+        $this->context->smarty->assign('categories', $categories);
 
         // Préparer toutes les variables pour le template
         $this->context->smarty->assign(array(
@@ -971,7 +996,7 @@ class PfProductImporter extends Module
     }
 
     /**
-     * renderMainSettingsForm function.
+     * renderExportCatalogForm function.
      *
      * @return HelperForm
      */
