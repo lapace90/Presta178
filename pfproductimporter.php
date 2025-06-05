@@ -128,8 +128,8 @@ class PfProductImporter extends Module
             $output = Vccsv::buildMappingCategoryForm($this);
         } elseif (Tools::isSubmit('Submitimportpreview')) {
             // 4. Save Category Mapping
-            $output = Vccsv::saveCategoryMappings($this);
             Vccsv::createCategoryMappings();
+            $output = Vccsv::saveCategoryMappings($this);
 
             return $output;
         } elseif (Tools::isSubmit('Submitimportprocess')) {
@@ -211,7 +211,6 @@ class PfProductImporter extends Module
         } else {
             // 0. Main settings
             $output = $this->renderMainSettingsForm();
-            // $output = $this->display(__FILE__, 'views/templates/admin/main_settings.tpl'); // <-- MON TEMPLATE
         }
 
         return $output;
@@ -858,18 +857,13 @@ class PfProductImporter extends Module
         if (Tools::getValue('active_tab')) {
             $active_tab = Tools::getValue('active_tab');
         }
-        // if (Tools::getValue('active_tab') == 'mapping') {
-        //     // Si on est dans l'onglet de mapping, on construit le formulaire de mapping des champs
-        //     return Vccsv::buildMappingCategoryForm($this);
-        // }
 
         // Récupérer les catégories Prestashop pour affichage dans le select du template
-        $categories = Category::getCategories(
+        $cats = Category::getCategories(
             (int)Configuration::get('PS_LANG_DEFAULT'),
             true,
-            false
+            true
         );
-        $this->context->smarty->assign('categories', $categories);
 
         // Préparer toutes les variables pour le template
         $this->context->smarty->assign(array(
@@ -878,6 +872,7 @@ class PfProductImporter extends Module
             'tab_module' => 'payments_gateways',
             'current_index' => AdminController::$currentIndex,
             'module_dir' => $this->_path,
+            'cats' => $cats,
             'module_name' => $this->name,
             'ps_version' => _PS_VERSION_,
             'fields_value' => $config_values,

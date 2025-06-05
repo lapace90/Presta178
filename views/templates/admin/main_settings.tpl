@@ -122,7 +122,6 @@
                                 <p>{l s='No categories available for mapping.' mod='pfproductimporter'}</p>
                             {/if}
                         </div>
-                 
                     </div>
                 </div>
             </div>

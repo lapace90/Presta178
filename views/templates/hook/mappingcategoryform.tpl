@@ -64,14 +64,20 @@
 
         <div class="common-category">
             <label>{l s='Select common Category for all Products:' mod='pfproductimporter'}</label>
-            <select class="select-category" name="default_category">
+            <select class="select-category"  name="default_category">
                 <option value="0">{l s='-- Select --' mod='pfproductimporter'}</option>
                 {if isset($cats) && is_array($cats) && !empty($cats)}
-                    {foreach from=$cats item=category}
-                        {if isset($category.infos)}
-                            <option value="{$category.infos.id_category|intval}">
-                                {str_repeat('&nbsp;&nbsp;', $category.infos.level_depth)}{$category.infos.name|escape:'htmlall':'UTF-8'}
-                            </option>
+                    {foreach from=$cats item=category_group}
+                        {if is_array($category_group)}
+                            {foreach from=$category_group item=category}
+                                {if isset($category.infos)}
+                                    <option value="{$category.infos.id_category|intval}"
+                                        {if $row && isset($row.system_catid) && $row.system_catid == $category.infos.id_category}selected="selected"
+                                        {/if}>
+                                        {str_repeat('&nbsp;&nbsp;', $category.infos.level_depth)}{$category.infos.name|escape:'htmlall':'UTF-8'}
+                                    </option>
+                                {/if}
+                            {/foreach}
                         {/if}
                     {/foreach}
                 {/if}

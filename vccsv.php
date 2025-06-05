@@ -67,46 +67,60 @@ class Vccsv
     {
         $feedurl = Tools::getValue('vcfeedurl');
         if ($feedurl == '') {
-            exit('feed not found');
-        }
-        $feedid = 1;
-        // empty and store the product field mappings data  in import_feed_fields_csv;
-        $qry = 'delete from  `' . _DB_PREFIX_ . 'pfi_import_feed_fields_csv` ';
-        Db::getInstance()->execute($qry);
-        $i = 0;
-        $fld_map = Tools::getValue('fld_map');
-        foreach ($fld_map as $val) {
-            ++$i;
-            $system_field = Tools::getValue('sel_' . $i);
-            $xml_field = $val;
-            if ($system_field != 'Ignore Field') {
-                $sql = 'insert into `' . _DB_PREFIX_ .
-                    'pfi_import_feed_fields_csv` (`system_field`, xml_field, feed_id) values ("' .
-                    pSQL($system_field) . '", "' . pSQL($xml_field) . '", ' . (int) $feedid . ' )  ';
-                Db::getInstance()->execute($sql);
-                // if ($system_field == 'id_category_default')
-                // $catfield = $xml_field;
+            // Récupérer depuis la config si pas en POST
+            $feedurl = Configuration::get('SYNC_CSV_FEEDURL');
+            if (empty($feedurl)) {
+                exit('feed not found');
             }
         }
-        // build category mapping form
-        // Get all catgeories of the system
+        $feedid = 1;
+
+        // Cette partie devrait être déplacée dans saveFieldMappings() :
+        if (Tools::getValue('fld_map')) {
+            // empty and store the product field mappings data  in import_feed_fields_csv;
+            $qry = 'delete from  `' . _DB_PREFIX_ . 'pfi_import_feed_fields_csv` ';
+            Db::getInstance()->execute($qry);
+            $i = 0;
+            $fld_map = Tools::getValue('fld_map');
+            foreach ($fld_map as $val) {
+                ++$i;
+                $system_field = Tools::getValue('sel_' . $i);
+                $xml_field = $val;
+                if ($system_field != 'Ignore Field') {
+                    $sql = 'insert into `' . _DB_PREFIX_ .
+                        'pfi_import_feed_fields_csv` (`system_field`, `xml_field`, `feed_id`) values ("' .
+                        pSQL($system_field) . '", "' . pSQL($xml_field) . '", ' . (int) $feedid . ' )  ';
+                    Db::getInstance()->execute($sql);
+                }
+            }
+        }
+
+        // Build category mapping form
         $id_lang = Context::getContext()->cookie->id_lang;
         $categories = Category::getCategories((int) $id_lang, true);
-        var_dump($categories); 
-        // die();
+
         $catdata = '';
         $cats = self::recurseCategory2($categories, $categories[1][2], 2, 2, $catdata, $_this);
 
-        // get xml categories into array
+        // Get xml categories into array
         $fam = Vccsv::getXmlfield('id_category_default');
         if (empty($fam)) {
             $fam = 'fam';
         }
         $final_products_arr = self::getCategoriesFromFeed($feedurl, $fam, false);
-        // build form from category array
+
+        $existing_mappings = array();
+        $sql = 'SELECT `xml_catid`, `system_catid` FROM `' . _DB_PREFIX_ . 'pfi_import_feed_catfields_csv` WHERE `feed_id` = ' . (int)$feedid;
+        $mappings = Db::getInstance()->executeS($sql);
+
+        foreach ($mappings as $mapping) {
+            $existing_mappings[$mapping['xml_catid']] = $mapping['system_catid'];
+        }
+
         $options = $cats;
         $formatted_url = strstr($_SERVER['REQUEST_URI'], '&vc_mode= ', true);
         $vc_redirect = ($formatted_url != '') ? $formatted_url : $_SERVER['REQUEST_URI'];
+
         $_this->smarty->assign([
             'final_products_arr' => $final_products_arr,
             'feedurl' => $feedurl,
@@ -116,18 +130,19 @@ class Vccsv
             'vc_redirect' => $vc_redirect,
             'base_url' => __PS_BASE_URI__,
             'cats' => $cats,
+            'existing_mappings' => $existing_mappings,
         ]);
 
         return $_this->display(_PS_MODULE_DIR_ . 'pfproductimporter/pfproductimporter.php', 'mappingcategoryform.tpl');
     }
 
-    public static function getFeedByVal($val)
+    public static function getFeedByVal($xml_catid, $feed_id)
     {
-        $qry = 'select system_catid, xml_catid, create_new from `' .
-            _DB_PREFIX_ . 'pfi_import_feed_catfields_csv` where xml_catid="' . (int) $val . '"';
-        $row = Db::getInstance()->getRow($qry);
+        $sql = 'SELECT * FROM `' . _DB_PREFIX_ . 'pfi_import_feed_catfields_csv` 
+            WHERE `xml_catid` = "' . pSQL($xml_catid) . '" 
+            AND `feed_id` = ' . (int)$feed_id;
 
-        return $row;
+        return Db::getInstance()->getRow($sql);
     }
 
     /**
@@ -198,37 +213,68 @@ class Vccsv
      */
     public static function saveCategoryMappings($_this)
     {
-        $feed_id = Tools::getValue('feed_id');
-        $vcfeedurl = Tools::getValue('vcfeedurl');
+        // Récupérer les données depuis le formulaire
+        $feed_id = Tools::getValue('feedid');
+        $feedurl = Tools::getValue('feedurl');
         $fixcategory = Tools::getValue('selfixcategory');
-        $i = 0;
-        // Empty and store the category  field mappings data  in import_feed_catfields_csv`;
-        $qry = 'delete from  `' . _DB_PREFIX_ . 'pfi_import_feed_catfields_csv` ';
-        Db::getInstance()->execute($qry);
-        $cat_map = Tools::getValue('cat_map');
 
-        foreach ($cat_map as $val) {
-            ++$i;
-            if (!Tools::getIsset('opt_' . $i) || !Tools::getIsset('sel_' . $i)) {
-                continue;
+        // Vider la table avant de sauvegarder
+        $qry = 'DELETE FROM `' . _DB_PREFIX_ . 'pfi_import_feed_catfields_csv`';
+        Db::getInstance()->execute($qry);
+
+        // Récupérer les tableaux depuis le formulaire
+        $cat_map = Tools::getValue('cat_map'); // Catégories du flux
+        $system_cat = Tools::getValue('system_cat'); // Catégories PrestaShop sélectionnées
+        $is_new = Tools::getValue('is_new'); // Indicateur de nouvelle catégorie
+
+        // Compteur pour le nombre de mappings sauvegardés
+        $saved_count = 0;
+
+        if (is_array($cat_map) && is_array($system_cat)) {
+            foreach ($cat_map as $index => $flux_category) {
+                // Récupérer la catégorie PrestaShop correspondante
+                $prestashop_category_id = isset($system_cat[$index]) ? (int)$system_cat[$index] : 0;
+
+                // Ne sauvegarder que si une catégorie PrestaShop est sélectionnée
+                if ($prestashop_category_id > 0) {
+                    // Déterminer si c'est une nouvelle catégorie (pour createCategoryMappings)
+                    $create_new = (isset($is_new[$index]) && $is_new[$index] == 1) ? 1 : 0;
+
+                    $sql = 'INSERT INTO `' . _DB_PREFIX_ . 'pfi_import_feed_catfields_csv` 
+                        (`system_catid`, `xml_catid`, `feed_id`, `create_new`) 
+                        VALUES (' . (int)$prestashop_category_id . ', 
+                                "' . pSQL($flux_category) . '", 
+                                ' . (int)$feed_id . ', 
+                                ' . (int)$create_new . ')';
+
+                    if (Db::getInstance()->execute($sql)) {
+                        $saved_count++;
+                    }
+                }
             }
-            $system_field = Tools::getValue('sel_' . $i);
-            $opt = Tools::getValue('opt_' . $i);
-            $xml_field = $val;
-            $qry = 'insert into `' . _DB_PREFIX_ .
-                'pfi_import_feed_catfields_csv` (`system_catid`, `xml_catid`, feed_id, create_new) values (' .
-                pSQL($system_field) . ', "' . pSQL($xml_field) . '", ' . (int) $feed_id . ', ' . pSQL($opt) . ' )  ';
-            Db::getInstance()->execute($qry);
         }
-        // Display the category mappings saved  message
+
+        // Sauvegarder la catégorie par défaut si elle est définie
+        $default_category = Tools::getValue('default_category');
+        if ($default_category > 0) {
+            Configuration::updateValue('PI_DEFAULT_CATEGORY', $default_category);
+        }
+
+        // Message de confirmation
+        $message = sprintf($_this->l('%d category mappings saved successfully'), $saved_count);
+
+        // Afficher le message de confirmation
         $formatted_url = strstr($_SERVER['REQUEST_URI'], '&vc_mode= ', true);
         $vc_redirect = ($formatted_url != '') ? $formatted_url : $_SERVER['REQUEST_URI'];
+
         $_this->smarty->assign([
             'feed_id' => $feed_id,
-            'vcfeedurl' => $vcfeedurl,
+            'vcfeedurl' => $feedurl,
             'fixcategory' => $fixcategory,
             'vc_redirect' => $vc_redirect,
             'base_url' => __PS_BASE_URI__,
+            'message' => $message,
+            'saved_count' => $saved_count
         ]);
 
         return $_this->display(_PS_MODULE_DIR_ . 'pfproductimporter/pfproductimporter.php', 'savecategorymappings.tpl');
