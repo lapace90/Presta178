@@ -254,12 +254,6 @@ class Vccsv
             }
         }
 
-        // Sauvegarder la catégorie par défaut si elle est définie
-        $default_category = Tools::getValue('default_category');
-        if ($default_category > 0) {
-            Configuration::updateValue('PI_DEFAULT_CATEGORY', $default_category);
-        }
-
         // Message de confirmation
         $message = sprintf($_this->l('%d category mappings saved successfully'), $saved_count);
 

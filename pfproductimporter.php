@@ -838,7 +838,6 @@ class PfProductImporter extends Module
             if (empty($fam)) {
 
                 $fam = 'fam';
-     
             }
             $final_products_arr = Vccsv::getCategoriesFromFeed($feedurl, $fam, false);
         }
@@ -857,13 +856,38 @@ class PfProductImporter extends Module
         if (Tools::getValue('active_tab')) {
             $active_tab = Tools::getValue('active_tab');
         }
+        // Récupérer les catégories Prestashop
+        $cats = Category::getNestedCategories(null, 1, true);
 
-        // Récupérer les catégories Prestashop pour affichage dans le select du template
-        $cats = Category::getCategories(
-            (int)Configuration::get('PS_LANG_DEFAULT'),
-            true,
-            true
-        );
+        // Construire le tableau d'options de catégories
+        function buildCategoryOptionsArray($categories, $depth = 0)
+        {
+            $options = [];
+            foreach ($categories as $category) {
+                $options[] = [
+                    'id_category' => $category['id_category'],
+                    'name' => $category['name'],
+                    'depth' => $depth
+                ];
+                if (isset($category['children']) && !empty($category['children'])) {
+                    $children = buildCategoryOptionsArray($category['children'], $depth + 1);
+                    $options = array_merge($options, $children);
+                }
+            }
+            return $options;
+        }
+
+        $categoryOptionsArray = buildCategoryOptionsArray($cats, 0);
+
+        // Précalcul des catégories mappées
+        $mappedCategories = [];
+        if (!empty($final_products_arr)) {
+            foreach ($final_products_arr as $category_name) {
+                $row = Vccsv::getFeedByVal($category_name, $feedid);
+                $mappedCategories[$category_name] = $row ? $row : null;
+            }
+        }
+
 
         // Préparer toutes les variables pour le template
         $this->context->smarty->assign(array(
@@ -873,6 +897,8 @@ class PfProductImporter extends Module
             'current_index' => AdminController::$currentIndex,
             'module_dir' => $this->_path,
             'cats' => $cats,
+            'categoryOptionsArray' => $categoryOptionsArray,
+            'mappedCategories' => $mappedCategories,
             'module_name' => $this->name,
             'ps_version' => _PS_VERSION_,
             'fields_value' => $config_values,
