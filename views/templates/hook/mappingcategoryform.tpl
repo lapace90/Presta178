@@ -53,6 +53,34 @@
     </form>
 </div>
 
+<script>
+    // Il faut empêcher le comportement par défaut du formulaire pour éviter le rechargement de la page
+    // et gérer la soumission via AJAX pour afficher le résultat sans recharger la page.
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.querySelector('#category-mapping-form');
+
+        if (form) {
+            form.addEventListener('submit', function(event) {
+                const result = document.querySelector('.result');
+                const formData = new FormData(this);
+
+                fetch(this.action || '/', {
+                        body: formData,
+                        method: 'POST'
+                    })
+                    .then(response => {
+                        if (result) result.innerText = 'Success';
+                    })
+                    .catch(error => {
+                        if (result) result.innerText = 'Failed';
+                    });
+            });
+            event.preventDefault();
+        }
+    });
+</script>
+
 <style>
     .import-form {
         max-width: 800px;

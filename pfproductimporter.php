@@ -51,6 +51,14 @@ class PfProductImporter extends Module
         $this->path = $this->_path;
         $this->module_key = 'd471e4caa738fe49f0d11c5f1f514145';
         $this->bootstrap = true;
+
+        // Ensure context and smarty are initialized
+        if (!isset($this->context) || !$this->context) {
+            $this->context = Context::getContext();
+        }
+        if (!isset($this->smarty) || !$this->smarty) {
+            $this->smarty = $this->context->smarty;
+        }
     }
 
     /**
@@ -101,6 +109,10 @@ class PfProductImporter extends Module
         @ini_set('max_execution_time', 0);
         define('UNFRIENDLY_ERROR', false);
         ini_set('memory_limit', '2048M');
+
+        $this->context->smarty->assign('secure_key', Configuration::get('PI_SOFTWAREID'));
+        $this->context->smarty->assign('pi_softwareid', Configuration::get('PI_SOFTWAREID'));
+
         if (Tools::isSubmit('SubmitSaveMainSettings')) {
             // 1. Save Main Settings
             if ($this->saveMainSettingsForm()) {
@@ -123,6 +135,7 @@ class PfProductImporter extends Module
             return $output;
         } elseif (Tools::isSubmit('SubmitSaveFields')) {
             Vccsv::saveFieldMappings($this);
+            $output .= $this->renderMainSettingsForm();
         } elseif (Tools::isSubmit('Submitmapcategory')) {
             // 3. Category Mapping
             $output = Vccsv::buildMappingCategoryForm($this);
@@ -136,7 +149,7 @@ class PfProductImporter extends Module
             // 5. Import CSV catalog
             $Submitlimit = Tools::getValue('Submitlimit');
             $id = 0;
-            $output = $this->saveTestTmpData($id, $Submitlimit);
+            $output .= $this->saveTestTmpData($id, $Submitlimit);
 
             return $output;
         } elseif (Tools::isSubmit('exportallproduct')) {
@@ -160,6 +173,7 @@ class PfProductImporter extends Module
             $Submitlimit = 2000;
             $id = 2;
             $this->saveTestTmpData($id, $Submitlimit);
+            $this->finalimport($Submitlimit, '');
         } elseif (Tools::isSubmit('Submitimportfromlastupdated')) {
             // TODO : Bloc à supprimer ?
             $Submitlimit = 100;
@@ -765,8 +779,8 @@ class PfProductImporter extends Module
         );
 
         // Préparer les variables pour le redirect
-        $formatted_url = strstr($_SERVER['REQUEST_URI'], '&vc_mode= ', true);
-        $vc_redirect = ($formatted_url != '') ? $formatted_url : $_SERVER['REQUEST_URI'];
+        // $formatted_url = strstr($_SERVER['REQUEST_URI'], '&vc_mode= ', true);
+        // $vc_redirect = ($formatted_url != '') ? $formatted_url : $_SERVER['REQUEST_URI'];
 
         // Variables pour le mapping
         $feedid = 1;
@@ -912,12 +926,13 @@ class PfProductImporter extends Module
             'raw_products_arr' => $raw_products_arr,
             'final_products_arr' => $final_products_arr,
             // Variables pour le redirect et mapping
-            'vc_redirect' => $vc_redirect,
+            // 'vc_redirect' => $vc_redirect,
             'feedid' => $feedid,
             'feedurl' => $feedurl,
             'fixcategory' => $fixcategory,
             'base_url' => __PS_BASE_URI__,
-            // Variables pour le mapping des champs
+            'secure_key' => Configuration::get('PI_SOFTWAREID'),
+            'pi_softwareid' => Configuration::get('PI_SOFTWAREID'),            // Variables pour le mapping des champs
             'newproductfields' => $newproductfields,
             'attrgrp' => $attrgrp,
         ));
@@ -1435,7 +1450,6 @@ class PfProductImporter extends Module
                     $product->price = (float) $product->price;
                     if ($product->price != '') {
                         $product->price = number_format($product->price, 6, '.', '');
-                        $product->price = $product->price - $product->ecotax;
                         $product->price = $product->price / (1 + $amount_tax / 100);
                         $product->price = number_format($product->price, 6, '.', '');
                     }
@@ -1453,7 +1467,7 @@ class PfProductImporter extends Module
                     }
                 }
 
-                if ($has_combination_base && isset($tabledata['available_date'])) {
+                if (isset($tabledata['available_date'])) {
                     if (isset($feedproduct[$tabledata['available_date']])) {
                         $product->available_date = $feedproduct[$tabledata['available_date']];
                     }
@@ -1594,30 +1608,26 @@ class PfProductImporter extends Module
                     $reference_field = Configuration::get('PI_PRODUCT_REFERENCE');
                     $temp_p_array[] = $product->id;
                     $temp_p_array2[] = $product->$reference_field;
-                    // FIXME : Désactivation création Product supplier inutile ?
-                    // if (!empty($tabledata['manufacturer']))
-                    // {
-                    //     $product->supplier_reference = '';
-                    //     if (isset($product->id_supplier, $product->supplier_reference)) {
-                    //         $id_product_supplier = ProductSupplier::getIdByProductAndSupplier(
-                    //             (int) $product->id,
-                    //             0,
-                    //             (int) $product->id_supplier
-                    //         );
-                    //         if ($id_product_supplier) {
-                    //             $product_supplier = new ProductSupplier((int) $id_product_supplier);
-                    //         } else {
-                    //             $product_supplier = new ProductSupplier();
-                    //         }
-                    //         $product_supplier->id_product = $product->id;
-                    //         $product_supplier->id_product_attribute = 0;
-                    //         $product_supplier->id_supplier = $product->id_supplier;
-                    //         $product_supplier->product_supplier_price_te = $product->wholesale_price;
-                    //         $product_supplier->product_supplier_reference = $product->supplier_reference;
-                    //         $product_supplier->save();
-                    //         $output .= 'Creation Supplier '.$feedproduct[$tabledata['manufacturer']].' ('.$id_product_supplier.') pour '.$product->$reference_field . "\n";
-                    //     }
-                    // }
+                    // Product supplier
+                    $product->supplier_reference = '';
+                    if (isset($product->id_supplier, $product->supplier_reference)) {
+                        $id_product_supplier = ProductSupplier::getIdByProductAndSupplier(
+                            (int) $product->id,
+                            0,
+                            (int) $product->id_supplier
+                        );
+                        if ($id_product_supplier) {
+                            $product_supplier = new ProductSupplier((int) $id_product_supplier);
+                        } else {
+                            $product_supplier = new ProductSupplier();
+                        }
+                        $product_supplier->id_product = $product->id;
+                        $product_supplier->id_product_attribute = 0;
+                        $product_supplier->id_supplier = $product->id_supplier;
+                        $product_supplier->product_supplier_price_te = $product->wholesale_price;
+                        $product_supplier->product_supplier_reference = $product->supplier_reference;
+                        $product_supplier->save();
+                    }
                 }
                 if (isset($product->id_category)) {
                     $product->updateCategories(array_map('intval', $product->id_category));
@@ -1700,11 +1710,6 @@ class PfProductImporter extends Module
          * Traitement des déclinaisons
          */
         if (Combination::isFeatureActive()) {
-            if ($this->isPrestashop8()) {
-                $Attribute = 'ProductAttribute';
-            } else {
-                $Attribute = 'Attribute';
-            }
             // $linecountedited_combinations = 0;
             $linecountadded_combinations = 0;
             $linecounterror_combinations = 0;
@@ -1813,7 +1818,7 @@ class PfProductImporter extends Module
 
                             if (!$infos_attribute) {
                                 // Création de l'attribut
-                                $obj = new $Attribute();
+                                $obj = new Attribute();
                                 $obj->id_attribute_group = $attr_infos['id_attribute_group'];
 
                                 $namearray = [];
@@ -1822,7 +1827,7 @@ class PfProductImporter extends Module
                                 }
 
                                 $obj->name = $namearray;
-                                $obj->position = $Attribute::getHigherPosition($attr_infos['id_attribute_group']) + 1;
+                                $obj->position = Attribute::getHigherPosition($attr_infos['id_attribute_group']) + 1;
 
                                 if (($field_error = $obj->validateFields(UNFRIENDLY_ERROR, true)) === true
                                     && ($lang_field_error = $obj->validateFieldsLang(UNFRIENDLY_ERROR, true)) === true
@@ -1862,11 +1867,11 @@ class PfProductImporter extends Module
                             $weight = isset($feedproduct[$tabledata['weight']])
                                 ? (float) $feedproduct[$tabledata['weight']]
                                 : 0;
+                            $price = isset($feedproduct[$tabledata['price']])
+                                ? ProductVccsv::formatPriceFromWS($feedproduct[$tabledata['price']], $amount_tax)
+                                : 0.000000;
                             $ecotax = isset($feedproduct[$tabledata['ecotax']])
                                 ? ProductVccsv::formatPriceFromWS($feedproduct[$tabledata['ecotax']])
-                                : 0.000000;
-                            $price = isset($feedproduct[$tabledata['price']])
-                                ? ProductVccsv::formatPriceFromWS($feedproduct[$tabledata['price']] - $ecotax, $amount_tax)
                                 : 0.000000;
 
                             // Impacts
@@ -1914,7 +1919,7 @@ class PfProductImporter extends Module
                                 }
 
                                 // after insertion, we clean attribute position and group attribute position
-                                $obj = new $Attribute();
+                                $obj = new Attribute();
                                 $obj->cleanPositions((int) $attributes[$attr_name]['id_attribute_group'], false);
                                 AttributeGroup::cleanPositions();
 
@@ -2558,9 +2563,9 @@ class PfProductImporter extends Module
             }
 
             $tabledata .= $this->balise('/tr');
-            if ((int) $Submitlimit > 0 && $a == $Submitlimit) {
-                break;
-            }
+            // if ((int) $Submitlimit > 0 && $a == $Submitlimit) {
+            //     break;
+            // }
         }
         if ($id == 3) { // directimport
             return true;
@@ -2573,7 +2578,8 @@ class PfProductImporter extends Module
             'secure_key' => Configuration::get('PI_SOFTWAREID'),
         ]);
 
-        return $this->display(__FILE__, 'importallcatalog.tpl');
+        // rester sur le même template
+        return;
     }
 
     /**

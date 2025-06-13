@@ -22,7 +22,9 @@ if (Tools::getIsset('secure_key')) {
         if (Tools::getValue('action') && Tools::getValue('action') == 'count') {
             echo $module->countimport();
         } elseif (Tools::getValue('action') && Tools::getValue('action') == 'import') {
-            echo $module->finalimport();
+            $Submitlimit = Tools::getValue('Submitlimit', 100);
+            $Submitoffset = Tools::getValue('Submitoffset', 0);
+            echo $module->finalimport($Submitlimit, $Submitoffset, 1);
         }
     }
 }

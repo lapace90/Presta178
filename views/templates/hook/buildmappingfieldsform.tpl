@@ -89,20 +89,80 @@
 </div>
 
 <script>
-    const handleSubmit = event => {
-        event.preventDefault();
+    // Script pour gérer la soumission du formulaire de mappage des champs sans recharger la page
 
-        const myForm = event.target;
-        const formData = new FormData(myForm);
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.querySelector('#mapping-fields-form');
 
-        fetch("/", {
-                method: "POST",
-                headers: { "Content-Type": "application/x-www-form-urlencoded" },
-                body: new URLSearchParams(formData).toString()
-            })
-            .then(() => alert("Thank you for your submission"))
-            .catch(error => alert(error));
-    };
+        if (form) {
+            form.addEventListener('submit', function(event) {
+                    event.preventDefault();
 
-    document.querySelector("form").addEventListener("submit", handleSubmit);
+                    const formData = new FormData(this);
+                    // Ajouter le paramètre ajax pour PrestaShop
+                    formData.append('ajax', '1');
+
+                    // Afficher un loader ou message
+                    const submitBtn = this.querySelector('input[type="submit"]');
+                    const originalText = submitBtn.value;
+                    submitBtn.value = '{l s="Saving..." mod="pfproductimporter" js=1}';
+                    submitBtn.disabled = true;
+
+                    fetch('{$smarty.server.REQUEST_URI|escape:"javascript":"UTF-8"}', {
+                    method: 'POST',
+                        body: formData,
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    // Réactiver le bouton
+                    submitBtn.value = originalText;
+                    submitBtn.disabled = false;
+
+                    if (data.success) {
+                        // Afficher un message de succès
+                        showSuccessMessage('{l s="Categories mapped successfully!" mod="pfproductimporter" js=1}');
+                    } else {
+                        showErrorMessage(data.message || '{l s="An error occurred" mod="pfproductimporter" js=1}');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    submitBtn.value = originalText;
+                    submitBtn.disabled = false;
+                    showErrorMessage('{l s="Connection error" mod="pfproductimporter" js=1}');
+                });
+        });
+    }
+    });
+
+    function showSuccessMessage(message) {
+        // Créer ou mettre à jour le message
+        let messageDiv = document.querySelector('.ajax-message');
+        if (!messageDiv) {
+            messageDiv = document.createElement('div');
+            messageDiv.className = 'ajax-message';
+            document.querySelector('.import-form').insertBefore(messageDiv, document.querySelector('.import-form')
+                .firstChild);
+        }
+        messageDiv.innerHTML = '<div class="alert alert-success">' + message + '</div>';
+
+        // Faire disparaître après 3 secondes
+        setTimeout(() => {
+            messageDiv.innerHTML = '';
+        }, 3000);
+    }
+
+    function showErrorMessage(message) {
+        let messageDiv = document.querySelector('.ajax-message');
+        if (!messageDiv) {
+            messageDiv = document.createElement('div');
+            messageDiv.className = 'ajax-message';
+            document.querySelector('.import-form').insertBefore(messageDiv, document.querySelector('.import-form')
+                .firstChild);
+        }
+        messageDiv.innerHTML = '<div class="alert alert-danger">' + message + '</div>';
+    }
 </script>

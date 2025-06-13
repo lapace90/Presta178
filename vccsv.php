@@ -91,6 +91,8 @@ class Vccsv
                         'pfi_import_feed_fields_csv` (`system_field`, `xml_field`, `feed_id`) values ("' .
                         pSQL($system_field) . '", "' . pSQL($xml_field) . '", ' . (int) $feedid . ' )  ';
                     Db::getInstance()->execute($sql);
+                    // if ($system_field == 'id_category_default')
+                    // $catfield = $xml_field;
                 }
             }
         }
@@ -118,8 +120,8 @@ class Vccsv
         }
 
         $options = $cats;
-        $formatted_url = strstr($_SERVER['REQUEST_URI'], '&vc_mode= ', true);
-        $vc_redirect = ($formatted_url != '') ? $formatted_url : $_SERVER['REQUEST_URI'];
+        // $formatted_url = strstr($_SERVER['REQUEST_URI'], '&vc_mode= ', true);
+        // $vc_redirect = ($formatted_url != '') ? $formatted_url : $_SERVER['REQUEST_URI'];
 
         $_this->smarty->assign([
             'final_products_arr' => $final_products_arr,
@@ -127,7 +129,7 @@ class Vccsv
             'feedid' => $feedid,
             'options' => $options,
             'systemctid' => 'CATEGORY',
-            'vc_redirect' => $vc_redirect,
+            // 'vc_redirect' => $vc_redirect,
             'base_url' => __PS_BASE_URI__,
             'cats' => $cats,
             'existing_mappings' => $existing_mappings,
@@ -211,7 +213,7 @@ class Vccsv
      * @return void
      *              savecategorymappings
      */
-    public static function saveCategoryMappings($_this)
+    public static function saveCategoryMappings($_this, $isAjax = false)
     {
         // Récupérer les données depuis le formulaire
         $feed_id = Tools::getValue('feedid');
@@ -257,21 +259,27 @@ class Vccsv
         // Message de confirmation
         $message = sprintf($_this->l('%d category mappings saved successfully'), $saved_count);
 
-        // Afficher le message de confirmation
-        $formatted_url = strstr($_SERVER['REQUEST_URI'], '&vc_mode= ', true);
-        $vc_redirect = ($formatted_url != '') ? $formatted_url : $_SERVER['REQUEST_URI'];
+        // Retour direct pour AJAX
+        if ($isAjax) {
+            return $message;
+        }
+
+        // Traitement normal pour non-AJAX
+        // $formatted_url = strstr($_SERVER['REQUEST_URI'], '&vc_mode= ', true);
+        // $vc_redirect = ($formatted_url != '') ? $formatted_url : $_SERVER['REQUEST_URI'];
 
         $_this->smarty->assign([
             'feed_id' => $feed_id,
             'vcfeedurl' => $feedurl,
             'fixcategory' => $fixcategory,
-            'vc_redirect' => $vc_redirect,
+            // 'vc_redirect' => $vc_redirect,
             'base_url' => __PS_BASE_URI__,
             'message' => $message,
             'saved_count' => $saved_count
-        ]);
+        ]);        
 
-        return $_this->display(_PS_MODULE_DIR_ . 'pfproductimporter/pfproductimporter.php', 'savecategorymappings.tpl');
+        // return $_this->display(_PS_MODULE_DIR_ . 'pfproductimporter/pfproductimporter.php', 'savecategorymappings.tpl');
+        return $message;
     }
 
     /**
@@ -353,9 +361,7 @@ class Vccsv
             $system_field = Tools::getValue('sel_' . $i);
             $xml_field = $val;
 
-            $qry = 'INSERT INTO `' . _DB_PREFIX_ .
-                'pfi_import_feed_fields_csv` (`xml_field`, `system_field`) VALUES ("' .
-                pSQL($xml_field) . '", "' . pSQL($system_field) . '")';
+            $qry = 'INSERT INTO `' . _DB_PREFIX_ . 'pfi_import_feed_fields_csv` (`xml_field`, `system_field`, `feed_id`) VALUES ("' . pSQL($xml_field) . '", "' . pSQL($system_field) . '", 1)'; // J'ai dû mettre 1 en dur pour le feed_id, car il ne passe pas dans le formulaire 
             Db::getInstance()->execute($qry);
         }
         return '';
@@ -368,6 +374,8 @@ class Vccsv
      *
      * @return void
      *              buildmappingfieldsform
+     * 
+     * On s'en sert pas pour l'instant
      */
     public static function buildMappingFieldsForm($_this)
     {
@@ -453,8 +461,8 @@ class Vccsv
                 );
             }
         }
-        $formatted_url = strstr($_SERVER['REQUEST_URI'], '&vc_mode= ', true);
-        $vc_redirect = ($formatted_url != '') ? $formatted_url : $_SERVER['REQUEST_URI'];
+        // $formatted_url = strstr($_SERVER['REQUEST_URI'], '&vc_mode= ', true);
+        // $vc_redirect = ($formatted_url != '') ? $formatted_url : $_SERVER['REQUEST_URI'];
 
         /**
          * @edit Definima
@@ -469,7 +477,7 @@ class Vccsv
         }
 
         $_this->smarty->assign([
-            'vc_redirect' => $vc_redirect,
+            // 'vc_redirect' => $vc_redirect,
             'newproductfields' => $newproductfields,
             'raw_products_arr' => $raw_products_arr,
             'feedurl' => $feedurl,
@@ -477,7 +485,10 @@ class Vccsv
             'attrgrp' => $attrgrp,
         ]);
 
-        return $_this->display(_PS_MODULE_DIR_ . 'pfproductimporter/pfproductimporter.php', 'buildmappingfieldsform.tpl');
+        return $_this->display(
+                    _PS_MODULE_DIR_ . 'pfproductimporter/pfproductimporter.php',
+                    'buildmappingfieldsform.tpl'
+                );
     }
 
     public static function getfields($key)

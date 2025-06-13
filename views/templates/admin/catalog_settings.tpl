@@ -121,14 +121,13 @@
             <div class="form-group">
                 <label class="control-label col-lg-4">{l s='Manual import' mod='pfproductimporter'}</label>
                 <div class="col-lg-8">
-                    <form action="{$vc_redirect|escape:'htmlall':'UTF-8'}" method="post">
+                    <form action="" method="post">
                         <input type="hidden" name="feedid" value="{$feedid|escape:'htmlall':'UTF-8'}" />
                         <input type="hidden" name="feedurl" value="{$feedurl|escape:'htmlall':'UTF-8'}" />
                         <input type="hidden" name="fixcategory" value="{$fixcategory|escape:'htmlall':'UTF-8'}" />
                         <input type="hidden" name="Submitlimit" value="100000" />
-                        <input type="submit" name="Submitimportprocess" class="button btn btn-primary"
-                            value="{l s='Start import process' mod='pfproductimporter'}" />
-                    </form>
+                        </form>
+                        {include file="module:pfproductimporter/views/templates/hook/importallcatalog.tpl"}
                     <p class="help-block">
                         {l s='Manually trigger product import. This may take a few minutes.' mod='pfproductimporter'}
                     </p>
@@ -140,7 +139,7 @@
             <div class="form-group">
                 <label class="control-label col-lg-4">{l s='Manual export' mod='pfproductimporter'}</label>
                 <div class="col-lg-8">
-                    <form action="{$vc_redirect|escape:'htmlall':'UTF-8'}" method="post">
+                    <form action="" method="post">
                         <input type="submit" name="exportallproduct" class="button btn btn-primary"
                             value="{l s='Start export process' mod='pfproductimporter'}" />
                     </form>
@@ -153,7 +152,6 @@
     </div>
 </div>
 
-<!-- Le reste de votre code reste inchangé -->
 <hr>
 
 <!-- Enable sales import -->
