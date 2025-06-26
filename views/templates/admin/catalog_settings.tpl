@@ -126,15 +126,16 @@
                         <input type="hidden" name="feedurl" value="{$feedurl|escape:'htmlall':'UTF-8'}" />
                         <input type="hidden" name="fixcategory" value="{$fixcategory|escape:'htmlall':'UTF-8'}" />
                         <input type="hidden" name="Submitlimit" value="100000" />
-                        </form>
-                        {include file="module:pfproductimporter/views/templates/hook/importallcatalog.tpl"}
+                    </form>
+                    {include file="module:pfproductimporter/views/templates/hook/importallcatalog.tpl"}
                     <p class="help-block">
                         {l s='Manually trigger product import. This may take a few minutes.' mod='pfproductimporter'}
                     </p>
+
                 </div>
             </div>
         </div>
-        
+
         <div class="col-lg-6">
             <div class="form-group">
                 <label class="control-label col-lg-4">{l s='Manual export' mod='pfproductimporter'}</label>

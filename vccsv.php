@@ -276,7 +276,7 @@ class Vccsv
             'base_url' => __PS_BASE_URI__,
             'message' => $message,
             'saved_count' => $saved_count
-        ]);        
+        ]);
 
         // return $_this->display(_PS_MODULE_DIR_ . 'pfproductimporter/pfproductimporter.php', 'savecategorymappings.tpl');
         return $message;
@@ -346,25 +346,82 @@ class Vccsv
 
     public static function saveFieldMappings($_this)
     {
-        $i = 0;
-        // Empty and store the field mappings data in import_feed_fields_csv
-        $qry = 'DELETE FROM `' . _DB_PREFIX_ . 'pfi_import_feed_fields_csv`';
+        // Vider la table d'abord
+        $qry = 'DELETE FROM `' . _DB_PREFIX_ . 'pfi_import_feed_fields_csv` WHERE feed_id = 1';
         Db::getInstance()->execute($qry);
 
         $fld_map = Tools::getValue('fld_map');
+        $i = 0;
 
-        foreach ($fld_map as $val) {
+        if (!$fld_map || !is_array($fld_map)) {
+            return 'Aucun mapping fourni';
+        }
+
+        foreach ($fld_map as $xml_field) {
             ++$i;
             if (!Tools::getIsset('sel_' . $i)) {
                 continue;
             }
-            $system_field = Tools::getValue('sel_' . $i);
-            $xml_field = $val;
 
-            $qry = 'INSERT INTO `' . _DB_PREFIX_ . 'pfi_import_feed_fields_csv` (`xml_field`, `system_field`, `feed_id`) VALUES ("' . pSQL($xml_field) . '", "' . pSQL($system_field) . '", 1)'; // J'ai dû mettre 1 en dur pour le feed_id, car il ne passe pas dans le formulaire 
-            Db::getInstance()->execute($qry);
+            $system_field = Tools::getValue('sel_' . $i);
+
+            // Ajouter les mappings fixes
+            self::insertFixedFieldMappingsIfMissing();
+
+            if ($system_field !== 'Ignore Field' && !empty($xml_field)) {
+                $qry = 'INSERT INTO `' . _DB_PREFIX_ . 'pfi_import_feed_fields_csv` 
+                    (`xml_field`, `system_field`, `feed_id`) 
+                    VALUES ("' . pSQL($xml_field) . '", "' . pSQL($system_field) . '", 1)
+                    ON DUPLICATE KEY UPDATE xml_field = VALUES(xml_field)';
+                Db::getInstance()->execute($qry);
+            }
         }
-        return '';
+
+        return 'Mappings sauvegardés';
+    }
+
+    public static function insertFixedFieldMappingsIfMissing()
+    {
+        $requiredMappings = [
+            'reference' => 'codeArt',
+            'name' => 'des',
+            'id_category_default' => 'fam',
+            'wholesale_price' => 'paHT',
+            'id_tax_rules_group' => 'tTVA',
+            'price' => 'pvTTC',
+            'weight' => 'poids',
+            'taille_1' => 'taille',
+            'couleur_2' => 'couleur',
+            'quantity' => 'stock',
+            'ecotax' => 'deee',
+            'available_date' => 'dArr',
+            'condition' => 'neuf',
+            'product_url' => 'link',
+            'manufacturer' => 'four',
+            'image_url' => 'images',
+            'combination_reference' => 'codeDeclinaison',
+            'description' => 'description',
+        ];
+
+        // Récupérer toutes les lignes existantes pour le feed_id = 1
+        $existingRows = Db::getInstance()->executeS(
+            'SELECT system_field, xml_field FROM `' . _DB_PREFIX_ . 'pfi_import_feed_fields_csv` WHERE feed_id = 1'
+        );
+
+        // Créer un tableau des paires existantes
+        $existingPairs = [];
+        foreach ($existingRows as $row) {
+            $existingPairs[$row['system_field'] . '|' . $row['xml_field']] = true;
+        }
+
+        // Insérer uniquement les paires manquantes
+        foreach ($requiredMappings as $system_field => $xml_field) {
+            $key = $system_field . '|' . $xml_field;
+            if (!isset($existingPairs[$key])) {
+                Db::getInstance()->execute('INSERT INTO `' . _DB_PREFIX_ . 'pfi_import_feed_fields_csv`
+                (`xml_field`, `system_field`, `feed_id`) VALUES ("' . pSQL($xml_field) . '", "' . pSQL($system_field) . '", 1)');
+            }
+        }
     }
 
     /**
@@ -476,6 +533,8 @@ class Vccsv
             }
         }
 
+        self::insertFixedFieldMappingsIfMissing();
+
         $_this->smarty->assign([
             // 'vc_redirect' => $vc_redirect,
             'newproductfields' => $newproductfields,
@@ -486,9 +545,9 @@ class Vccsv
         ]);
 
         return $_this->display(
-                    _PS_MODULE_DIR_ . 'pfproductimporter/pfproductimporter.php',
-                    'buildmappingfieldsform.tpl'
-                );
+            _PS_MODULE_DIR_ . 'pfproductimporter/pfproductimporter.php',
+            'buildmappingfieldsform.tpl'
+        );
     }
 
     public static function getfields($key)

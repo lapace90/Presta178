@@ -6,13 +6,12 @@
 * @license   https://www.tgm-commerce.fr/
 *}
 
-<!-- Bouton pour ouvrir la modale et lancer saveTestTmpData-->
+<!-- Bouton pour ouvrir la modale -->
 <input type="button" id="openModalBtn" name="Submitimportprocess" class="button btn btn-primary"
     {if !$fields_value.PI_ALLOW_PRODUCTIMPORT}disabled="disabled" {/if}
     value="{l s='Start import process' mod='pfproductimporter'}" />
 
-
-<!-- La modale (si validée on lance l'import)-->
+<!-- La modale -->
 <div id="confirmModal" class="modal-overlay" style="display: none;">
     <div class="modal-content">
         <div class="modal-header">
@@ -20,15 +19,13 @@
             <span class="modal-close">&times;</span>
         </div>
         <div class="modal-body">
-            <p>{l s='First step completed. The product creation process will start and may take several minutes.' mod='pfproductimporter'}
-            </p>
+            <p>{l s='First step completed. The product creation process will start and may take several minutes.' mod='pfproductimporter'}</p>
             <p><strong>{l s='Please do not interrupt the process once started.' mod='pfproductimporter'}</strong></p>
             <p>{l s='Do you want to continue?' mod='pfproductimporter'}</p>
         </div>
         <div class="modal-footer">
             <button class="btn btn-cancel modal-cancel">{l s='Cancel' mod='pfproductimporter'}</button>
-            <button class="btn btn-primary import-btn">{l s='Start import' mod='pfproductimporter'}</button>
-
+            <button type="button" class="btn btn-primary" onclick="startDirectImport()">Import</button>
         </div>
     </div>
 </div>
@@ -43,6 +40,71 @@
         <span class="progress-text">0%</span>
     </div>
 </div>
+
+<script src="//code.jquery.com/jquery-2.1.4.min.js" type="text/javascript"></script>
+<script type="text/javascript">
+    // Gestion de la modale
+    $(document).ready(function() {
+        var modal = $('#confirmModal');
+        var openBtn = $('#openModalBtn');
+        var closeBtn = $('.modal-close');
+        var cancelBtn = $('.modal-cancel');
+
+        // Ouvrir la modale
+        openBtn.click(function() {
+            modal.fadeIn();
+        });
+
+        // Fermer la modale
+        closeBtn.click(function() {
+            modal.fadeOut();
+        });
+
+        cancelBtn.click(function() {
+            modal.fadeOut();
+        });
+
+        // Fermer si on clique en dehors
+        $(window).click(function(event) {
+            if (event.target == modal[0]) {
+                modal.fadeOut();
+            }
+        });
+    });
+
+    function startDirectImport() {
+        $('#confirmModal').fadeOut();
+        $('.import-status-container').show();
+        $('.progress-bar-container').show();
+        $('.import-status').text('Import en cours...');
+        
+        // Animation de la barre de progression
+        var progress = 0;
+        var progressInterval = setInterval(function() {
+            progress += 2;
+            if (progress <= 100) {
+                $('.progress-bar-fill').css('width', progress + '%');
+                $('.progress-text').text(progress + '%');
+            }
+        }, 100);
+
+        $.ajax({
+            url: window.location.href,
+            method: 'POST',
+            data: { direct_import_now: 1 },
+            success: function(response) {
+                clearInterval(progressInterval);
+                $('.progress-bar-fill').css('width', '100%');
+                $('.progress-text').text('100%');
+                $('.import-status').html('<strong style="color: green;">Import terminé avec succès!</strong>');
+            },
+            error: function() {
+                clearInterval(progressInterval);
+                $('.import-status').html('<strong style="color: red;">Erreur pendant l\'import</strong>');
+            }
+        });
+    }
+</script>
 
 <style>
     /* Styles pour la modale */
@@ -166,104 +228,3 @@
         font-weight: bold;
     }
 </style>
-
-<script src="//code.jquery.com/jquery-2.1.4.min.js" type="text/javascript"></script>
-<script type="text/javascript">
-    var limit = 100;
-    var total = 0;
-    var loops = 0;
-    var iterations = 0;
-    var uri = "{$base_url|escape:'htmlall':'UTF-8'}modules/pfproductimporter/ajax.php?secure_key={$secure_key|escape:'htmlall':'UTF-8'}";
-
-    // Gestion de la modale
-    $(document).ready(function() {
-        var modal = $('#confirmModal');
-        var openBtn = $('#openModalBtn');
-        var closeBtn = $('.modal-close');
-        var cancelBtn = $('.modal-cancel');
-        var importBtn = $('.import-btn');
-
-        // Ouvrir la modale
-        openBtn.click(function() {
-            modal.fadeIn();
-        });
-
-        // Fermer la modale
-        closeBtn.click(function() {
-            modal.fadeOut();
-        });
-
-        cancelBtn.click(function() {
-            modal.fadeOut();
-        });
-
-        // Fermer si on clique en dehors
-        $(window).click(function(event) {
-            if (event.target == modal[0]) {
-                modal.fadeOut();
-            }
-        });
-
-        // Démarrer l'import
-        importBtn.click(function() {
-            modal.fadeOut();
-            $('.import-status-container').show();
-            get_total_products();
-        });
-    });
-
-    function get_total_products() {
-        $('.import-status').text("{l s='Processing...' mod='pfproductimporter'}");
-        $('.progress-bar-container').show();
-
-        $.ajax(uri, {
-            'complete': function(jqXHR, textStatus) {
-                if (textStatus != 'success') {
-                    $('.import-status').text("{l s='Error during import initialization.' mod='pfproductimporter'}");
-                    $('.progress-bar-container').hide();
-                } else {
-                    total = parseInt(jqXHR.responseText);
-                    loops = Math.ceil(total / limit);
-                    iterations = 0;
-                    import_products();
-                }
-            },
-            'data': {
-                'action': 'count',
-            },
-            'method': 'POST',
-        });
-    }
-
-    function import_products() {
-        var progress = Math.min((iterations / loops) * 100, 100);
-        $('.progress-bar-fill').css('width', progress + '%');
-        $('.progress-text').text(Math.round(progress) + '%');
-        $('.import-status').text("{l s='Processing... Products imported:' mod='pfproductimporter'} " + (iterations * limit) + " / " + total);
-
-        $.ajax(uri, {
-            'complete': function(jqXHR, textStatus) {
-                iterations++;
-                if (textStatus != 'success') {
-                    $('.import-status').text("{l s='Error during import.' mod='pfproductimporter'}");
-                    $('.progress-bar-container').hide();
-                } else {
-                    if (iterations < loops) {
-                        import_products();
-                    } else {
-                        $('.progress-bar-fill').css('width', '100%');
-                        $('.progress-text').text('100%');
-                        $('.import-status').html('<strong style="color: green;">{l s='Catalog import completed successfully!' mod='pfproductimporter'}</strong>');
-                        setTimeout(function() {}, 2000);
-                    }
-                }
-            },
-            'data': {
-                'action': 'import',
-                'Submitoffset': iterations * limit,
-                'Submitlimit': limit
-            },
-            'method': 'POST',
-        });
-    }
-</script>

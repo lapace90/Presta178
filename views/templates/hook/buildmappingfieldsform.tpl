@@ -85,6 +85,7 @@
         <div class="button-group">
             <input type="submit" name="SubmitSaveFields" class="button" value="{l s='Save' mod='pfproductimporter'}" />
         </div>
+        <hr>
     </form>
 </div>
 

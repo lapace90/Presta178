@@ -113,13 +113,50 @@ class PfProductImporter extends Module
         $this->context->smarty->assign('secure_key', Configuration::get('PI_SOFTWAREID'));
         $this->context->smarty->assign('pi_softwareid', Configuration::get('PI_SOFTWAREID'));
 
+        if (Tools::isSubmit('direct_import_now')) {
+            $feedurl = Configuration::get('SYNC_CSV_FEEDURL');
+            $softwareid = Configuration::get('PI_SOFTWAREID');
+
+            try {
+                $sc = new SoapClient($feedurl, ['keep_alive' => false]);
+
+                // UTILISER DATE ANCIENNE pour récupérer TOUS les articles
+                $timestamp_old = '2020-01-01 00:00:00';
+                $art = $sc->getNewArticles($softwareid, $timestamp_old, 0);
+
+                if (!empty($art->article)) {
+                    // LANCER L'IMPORT DIRECT avec ces données
+                    $articles = is_array($art->article) ? $art->article : [$art->article];
+
+                    // $output = "<h3>IMPORT EN COURS</h3>";
+                    // $output .= count($articles) . " articles à traiter...<br><br>";
+
+                    // Sauver dans la table temporaire
+                    $this->saveTestTmpData(0, 0, $articles);
+
+                    // Lancer le comptage des articles
+                    $this->countimport();
+
+                    // Lancer l'import final
+                    $result = $this->finalimport('', '', 0);
+
+                    return $output . $result;
+                } else {
+                    return "Aucun article trouvé";
+                }
+            } catch (Exception $e) {
+                return "Erreur : " . $e->getMessage();
+            }
+        }
+
         if (Tools::isSubmit('SubmitSaveMainSettings')) {
             // 1. Save Main Settings
             if ($this->saveMainSettingsForm()) {
                 $output = $this->displayConfirmation($this->l('Settings updated'));
                 if (Tools::getValue('PI_ALLOW_PRODUCTIMPORT')) {
                     // 2. Fields Mapping
-                    $output .= Vccsv::buildMappingFieldsForm($this);
+                    // $output .= Vccsv::buildMappingFieldsForm($this);
+                    $output .= $this->renderMainSettingsForm();
                 } elseif (Tools::getValue('PI_ALLOW_PRODUCTEXPORT')) {
                     // 2. Export all prodcuts ?
                     $output .= $this->renderExportCatalogForm();
@@ -150,23 +187,23 @@ class PfProductImporter extends Module
             $Submitlimit = Tools::getValue('Submitlimit');
             $id = 0;
             $output .= $this->saveTestTmpData($id, $Submitlimit);
-
             return $output;
         } elseif (Tools::isSubmit('exportallproduct')) {
             // Export Catalog
             $output = ProductVccsv::exportAll();
-
             return $output;
         } elseif (Tools::isSubmit('SubmitExportorder')) {
+            if ($this->saveMainSettingsForm()) {
+                $output = $this->displayConfirmation('Paramètres des commandes enregistrés avec succès.');
+            }
+            $output .= $this->renderMainSettingsForm();
             // TODO : Export d'une commande, à supprimer ?
-            $order_id = Tools::getValue('txtorderid');
-            $output = OrderVccsv::orderSync($order_id);
-
+            // $order_id = Tools::getValue('txtorderid');
+            // $output .= OrderVccsv::orderSync($order_id);
             return $output;
         } elseif (Tools::isSubmit('SubmitImportcustomer')) {
             // TODO : Bloc à supprimer ?
             $output = CustomerVccsv::importCustomer();
-
             return $output;
         } elseif (Tools::isSubmit('Submitdirectimport')) {
             // TODO : Bloc à supprimer ?
@@ -206,7 +243,7 @@ class PfProductImporter extends Module
             $output = 'Import complete. ' . $this->importationlink();
 
             return $output;
-        } elseif (Tools::isSubmit('Submitfinalimportprocess') || Tools::isSubmit('submitfromlast')) {
+        } elseif (Tools::getValue('simple_import') || Tools::isSubmit('submitfromlast')) {
             // TODO : Import tache cron ?
             $Submitlimit = Tools::getValue('Submitlimit');
             $Submitoffset = Tools::getValue('Submitoffset');
@@ -947,9 +984,10 @@ class PfProductImporter extends Module
         if (Tools::substr($feedurl, -5) == '.wsdl' || Tools::substr($feedurl, -4) == '.csv') {
             try {
                 $softwareid = Configuration::get('PI_SOFTWAREID');
-                $timestamp = date('Y-m-d H:i:s', mktime(0, 0, 0, date('n'), date('j'), date('Y')));
+                $timestamp_old = '2020-01-01 00:00:00';
                 $sc = new SoapClient($feedurl, array('keep_alive' => false));
-                $art = $sc->getNewArticles($softwareid, $timestamp, 0);
+                $art = $sc->getNewArticles($softwareid, $timestamp_old, 0);
+                // $art = $sc->getNewArticles($softwareid, $timestamp, 0);
 
                 if (!empty($art->article)) {
                     if (is_array($art->article)) {
@@ -1154,6 +1192,7 @@ class PfProductImporter extends Module
             Db::getInstance()->execute('Insert into `' . _DB_PREFIX_ .
                 'pfi_import_update`(table_id, sync_reference, feedid) values (1, "00000", 1)');
         }
+
         $final_products_arr = Db::getInstance(_PS_USE_SQL_SLAVE_)->ExecuteS('SELECT COUNT(*) AS total FROM `' .
             _DB_PREFIX_ . 'pfi_import_tempdata_csv` WHERE feed_id=' . (int) $feed_id);
 
@@ -1207,7 +1246,7 @@ class PfProductImporter extends Module
         $enableeditproduct = Configuration::get('PI_EDIT_TASK');
         $activeproduct = Configuration::get('PI_ACTIVE');
         $i = 0;
-        $colid = 0;
+        $colid = 1; // pour éviter de chercher col0
         $tabledata = [];
         $result = Db::getInstance(_PS_USE_SQL_SLAVE_)->ExecuteS('select system_field  from `' . _DB_PREFIX_ .
             'pfi_import_feed_fields_csv` where feed_id=' . (int) $feed_id . ' ORDER BY id');
@@ -1275,13 +1314,13 @@ class PfProductImporter extends Module
 
                 // Si le produit de base a la valeur taille ou couleur renseignée,
                 // il faut créer une déclinaison (la principale)
-                if ((!empty($attributes['taille']['value'])) || (!empty($attributes['couleur']['value']))) {
-                    $tmp_feedproduct = $feedproduct;
-                    $tmp_feedproduct[$tabledata['combination_reference']] =
-                        $feedproduct[$tabledata[Configuration::get('PI_PRODUCT_REFERENCE')]];
-                    $combinations[] = $tmp_feedproduct;
-                    $has_combination_base = $feedproduct[$tabledata[Configuration::get('PI_PRODUCT_REFERENCE')]];
-                }
+                // if ((!empty($attributes['taille']['value'])) || (!empty($attributes['couleur']['value']))) {
+                //     $tmp_feedproduct = $feedproduct;
+                //     $tmp_feedproduct[$tabledata['combination_reference']] =
+                //         $feedproduct[$tabledata[Configuration::get('PI_PRODUCT_REFERENCE')]];
+                //     $combinations[] = $tmp_feedproduct;
+                //     $has_combination_base = $feedproduct[$tabledata[Configuration::get('PI_PRODUCT_REFERENCE')]];
+                // }
 
                 /**
                  * @edit Definima
@@ -1443,19 +1482,32 @@ class PfProductImporter extends Module
                     $amount_tax = 20;
                 }
 
+                // DEBUG PRIX - Version simplifiée
                 if (isset($tabledata['price'], $feedproduct[$tabledata['price']])) {
-                    $product->price = str_replace(', ', '.', $feedproduct[$tabledata['price']]);
-                    $product->price = str_replace('#', '.', $product->price);
-                    $product->price = str_replace('R', '', $product->price);
-                    $product->price = (float) $product->price;
-                    if ($product->price != '') {
-                        $product->price = number_format($product->price, 6, '.', '');
-                        $product->price = $product->price / (1 + $amount_tax / 100);
-                        $product->price = number_format($product->price, 6, '.', '');
+                    $prix_brut = $feedproduct[$tabledata['price']];
+                    // echo "<br>🔍 DEBUG PRIX pour $reference:<br>";
+                    // echo "- Prix brut reçu: '$prix_brut'<br>";
+
+                    // Nettoyage basique
+                    $prix_clean = str_replace([',', '#', 'R', ' '], ['.', '.', '', ''], $prix_brut);
+                    $prix_clean = (float) $prix_clean;
+                    // echo "- Prix nettoyé: $prix_clean<br>";
+
+                    if ($prix_clean > 0) {
+                        // Convertir TTC vers HT (avec TVA de 20%)
+                        $prix_ht = $prix_clean / 1.20;
+                        $product->price = number_format($prix_ht, 6, '.', '');
+                        // echo "- Prix HT calculé: {$product->price}<br>";
+                        // echo "- Prix qui sera sauvé: {$product->price}<br>";
+                    } else {
+                        $product->price = 0.000000;
+                        // echo "- Prix mis à 0 (prix invalide)<br>";
                     }
                 } else {
                     $product->price = 0.000000;
+                    // echo "<br>❌ Prix non trouvé pour $reference<br>";
                 }
+                // echo "========================================<br>";
 
                 if (isset($tabledata['quantity'])) {
                     if (isset($feedproduct[$tabledata['quantity']])) {
@@ -1467,7 +1519,7 @@ class PfProductImporter extends Module
                     }
                 }
 
-                if (isset($tabledata['available_date'])) {
+                if ($has_combination_base && isset($tabledata['available_date'])) {
                     if (isset($feedproduct[$tabledata['available_date']])) {
                         $product->available_date = $feedproduct[$tabledata['available_date']];
                     }
@@ -1696,6 +1748,8 @@ class PfProductImporter extends Module
                     }
                 }
             } catch (Exception $e) {
+                $reference = Configuration::get('PI_PRODUCT_REFERENCE');
+
                 $res = Db::getInstance()->Execute('update `' . _DB_PREFIX_ . 'pfi_import_update` set sync_reference="' .
                     pSQL($reference) . '" where feedid =1');
                 continue;
@@ -1710,6 +1764,11 @@ class PfProductImporter extends Module
          * Traitement des déclinaisons
          */
         if (Combination::isFeatureActive()) {
+            if ($this->isPrestashop8()) {
+                $Attribute = "ProductAttribute";
+            } else {
+                $Attribute = "Attribute";
+            }
             // $linecountedited_combinations = 0;
             $linecountadded_combinations = 0;
             $linecounterror_combinations = 0;
@@ -1818,7 +1877,7 @@ class PfProductImporter extends Module
 
                             if (!$infos_attribute) {
                                 // Création de l'attribut
-                                $obj = new Attribute();
+                                $obj = new $Attribute();
                                 $obj->id_attribute_group = $attr_infos['id_attribute_group'];
 
                                 $namearray = [];
@@ -1827,7 +1886,7 @@ class PfProductImporter extends Module
                                 }
 
                                 $obj->name = $namearray;
-                                $obj->position = Attribute::getHigherPosition($attr_infos['id_attribute_group']) + 1;
+                                $obj->position = $Attribute::getHigherPosition($attr_infos['id_attribute_group']) + 1;
 
                                 if (($field_error = $obj->validateFields(UNFRIENDLY_ERROR, true)) === true
                                     && ($lang_field_error = $obj->validateFieldsLang(UNFRIENDLY_ERROR, true)) === true
@@ -1919,7 +1978,7 @@ class PfProductImporter extends Module
                                 }
 
                                 // after insertion, we clean attribute position and group attribute position
-                                $obj = new Attribute();
+                                $obj = new $Attribute();
                                 $obj->cleanPositions((int) $attributes[$attr_name]['id_attribute_group'], false);
                                 AttributeGroup::cleanPositions();
 
@@ -1927,7 +1986,7 @@ class PfProductImporter extends Module
                                 Db::getInstance()->execute('INSERT INTO `' . _DB_PREFIX_ .
                                     'pfi_import_log`(vdate, reference, product_error) VALUE(NOW(), "' .
                                     pSQL($reference) . '", "Declinaison creee pour produit ' . $product_reference . '")');
-                                $output .= $reference . ' Declinaison creee pour produit ' . $product_reference . "\n";
+                                // $output .= $reference . ' Declinaison creee pour produit ' . $product_reference . "\n";
 
                                 $linecountadded_combinations = $linecountadded_combinations + 1;
                             } else {
@@ -2092,7 +2151,7 @@ class PfProductImporter extends Module
                 // Rajout des images Rezomatic
                 if (is_array($img['urls']) && !empty($img['urls'])) {
                     foreach ($img['urls'] as $url) {
-                        $output .= ProductVccsv::insertImage($url, $img, $languages, $this) . "\n";
+                        ProductVccsv::insertImage($url, $img, $languages, $this);
                     }
                 }
             }
@@ -2471,15 +2530,18 @@ class PfProductImporter extends Module
             $fldarray[] = $val['xml_field'];
         }
         $tabledata .= $this->balise('/tr');
-        Db::getInstance()->Execute('Delete from ' . _DB_PREFIX_ . 'pfi_import_tempdata_csv ');
+        // Db::getInstance()->Execute('Delete from ' . _DB_PREFIX_ . 'pfi_import_tempdata_csv ');
         if (Tools::substr($feedurl, -5) == '.wsdl' || Tools::substr($feedurl, -4) == '.csv') {
             if ($id == 3) {
-                $timestamp = Configuration::get('PI_LAST_CRON');
+                $timestamp_old = Configuration::get('PI_LAST_CRON');
             } else {
-                $timestamp = date('Y-m-d H:i:s', mktime(0, 0, 0, date('n'), date('j') - 1, date('Y') - 1));
+                // $timestamp = date('Y-m-d H:i:s', mktime(0, 0, 0, date('n'), date('j') - 1, date('Y') - 1));
+                $timestamp_old = '2020-01-01 00:00:00';
             }
             $sc = new SoapClient($feedurl, ['keep_alive' => false]);
-            $art = $sc->getNewArticles($softwareid, $timestamp, 0);
+            $art = $sc->getNewArticles($softwareid, $timestamp_old, 0);
+            // $art = $sc->getNewArticles($softwareid, $timestamp, 0);
+
             if (!empty($art->article)) {
                 // $separator = '\t';
                 $final_products_arr = [];
@@ -2529,6 +2591,7 @@ class PfProductImporter extends Module
             $i = 1;
             foreach ($val as $key2 => $val2) {
                 if (in_array($key2, $fldarray)) {
+
                     // $val2 = str_replace(', ', '#', $val2);
                     if (!in_array($key2, ['des', 'images', 'description', 'taille', 'couleur'])) {
                         // if (($key2 != 'images') && ($key2 != 'description')) {
@@ -2555,12 +2618,27 @@ class PfProductImporter extends Module
                 }
                 ++$i;
             }
+            // echo "=== DEBUG INSERTION ===\n";
+            // echo "Colonnes attendues: " . count($t_col) . "\n";
+            // echo "Valeurs fournies AVANT: " . count($querycolarr) . "\n";
+
+            while (count($querycolarr) < count($t_col)) {
+                $querycolarr[] = '\'0\'';
+            }
+
+            // echo "Valeurs fournies APRÈS: " . count($querycolarr) . "\n";
+
             $query = 'insert into `' . _DB_PREFIX_ .
                 'pfi_import_tempdata_csv`(' . implode(', ', array_map('pSQL', $t_col)) . ') ' .
                 'values (' . implode(', ', $querycolarr) . ')';
+
+            // echo "Query: " . $query . "\n";
+
             if (count($querycolarr) == count($t_col)) {
+                // echo "✅ INSERTION OK\n";
                 Db::getInstance()->execute($query);
             }
+            // echo "---\n";
 
             $tabledata .= $this->balise('/tr');
             // if ((int) $Submitlimit > 0 && $a == $Submitlimit) {
