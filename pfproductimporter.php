@@ -179,8 +179,10 @@ class PfProductImporter extends Module
         } elseif (Tools::isSubmit('Submitimportpreview')) {
             // 4. Save Category Mapping
             Vccsv::createCategoryMappings();
-            $output = Vccsv::saveCategoryMappings($this);
+            $output .= Vccsv::saveCategoryMappings($this);
 
+            // $output .= Vccsv::buildMappingCategoryForm($this);
+            $output .= $this->renderMainSettingsForm();
             return $output;
         } elseif (Tools::isSubmit('Submitimportprocess')) {
             // 5. Import CSV catalog
@@ -1541,21 +1543,37 @@ class PfProductImporter extends Module
                         } else {
                             $category = trim($catarr[0]);
                         }
-                        $row = Db::getInstance()->getRow('SELECT system_catid, xml_catid, create_new FROM `' . _DB_PREFIX_ .
-                            'pfi_import_feed_catfields_csv` WHERE xml_catid = "' . pSQL($category) . '"');
-                        if (isset($row['system_catid']) && $row['system_catid'] > 0) {
-                            if (isset($row['create_new']) && $row['create_new'] == 1) {
-                                // $parentcat = $row['system_catid'];
-                                if (is_numeric($row['xml_catid'])) {
-                                    $product->category = [$row['system_catid']];
+
+                        // NOUVEAU : Essayer d'abord avec la hiérarchie complète
+                        $rayon = isset($tabledata['rayon']) && isset($feedproduct[$tabledata['rayon']]) ?
+                            $feedproduct[$tabledata['rayon']] : '';
+                        $famille = isset($tabledata['fam']) && isset($feedproduct[$tabledata['fam']]) ?
+                            $feedproduct[$tabledata['fam']] : '';
+                        $sous_famille = isset($tabledata['sFam']) && isset($feedproduct[$tabledata['sFam']]) ?
+                            $feedproduct[$tabledata['sFam']] : '';
+
+                        // Chercher le mapping avec la hiérarchie
+                        $mapping = Vccsv::findCategoryMapping($rayon, $famille, $sous_famille);
+
+                        if ($mapping && isset($mapping['system_catid'])) {
+                            $product->category = [(int) $mapping['system_catid']];
+                        } else {
+                            // Fallback vers l'ancien système
+                            $row = Db::getInstance()->getRow('SELECT system_catid, xml_catid, create_new FROM `' . _DB_PREFIX_ .
+                                'pfi_import_feed_catfields_csv` WHERE xml_catid = "' . pSQL($category) . '"');
+                            if (isset($row['system_catid']) && $row['system_catid'] > 0) {
+                                if (isset($row['create_new']) && $row['create_new'] == 1) {
+                                    if (is_numeric($row['xml_catid'])) {
+                                        $product->category = [$row['system_catid']];
+                                    } else {
+                                        $product->category = [$category];
+                                    }
                                 } else {
-                                    $product->category = [$category];
+                                    $product->category = [$row['system_catid']];
                                 }
                             } else {
-                                $product->category = [$row['system_catid']];
+                                $product->category = [$category];
                             }
-                        } else {
-                            $product->category = [$category];
                         }
 
                         if ((int) $fixcategory > 0) { // fixcategory
@@ -1566,8 +1584,6 @@ class PfProductImporter extends Module
 
                         if ($product->id_category_default == '') {
                             $product->id_category_default = 2;
-                            // $linecounterror = $linecounterror + 1;
-                            // continue;
                         }
                     }
                     ProductVccsv::setproductlinkRewrite($product, $default_language_id, $languages);

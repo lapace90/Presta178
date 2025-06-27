@@ -17,7 +17,7 @@
         </div>
 
         <table class="category-table table striped">
-            <thead>
+            <thead class="thead-primary">
                 <tr>
                     <th width="50%">{l s='Fields from feed' mod='pfproductimporter'}</th>
                     <th width="50%">{l s='Fields from system' mod='pfproductimporter'}</th>
