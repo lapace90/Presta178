@@ -43,10 +43,6 @@
                             <i class="icon-folder-open"></i>
                             {l s='PrestaShop Category' mod='pfproductimporter'}
                         </th>
-                        <th width="10%">
-                            <i class="icon-eye"></i>
-                            {l s='Preview' mod='pfproductimporter'}
-                        </th>
                     </tr>
                 </thead>
                 <tbody>
@@ -60,34 +56,30 @@
                             <tr class="category-row" data-category="{$category_name|escape:'htmlall':'UTF-8'}">
                                 <td>
                                     <div class="category-display">
-                                        {if strpos($category_name, ' > ') !== false}
-                                            {* Affichage hiérarchique *}
-                                            <div class="hierarchy-path">
-                                                <i class="icon-sitemap text-success"></i>
-                                                <strong>{$category_name|escape:'htmlall':'UTF-8'}</strong>
-                                            </div>
+                                        {* <div class="hierarchy-path">
+                                            <i class="icon-sitemap text-success"></i>
+                                            <strong>{$category_name|escape:'htmlall':'UTF-8'}</strong>
+                                        </div> *}
+
+                                        <div class="hierarchy-parts">
+                                            {assign var="parts" value=" > "|explode:$category_name}
+
                                             <div class="hierarchy-parts">
-                                                {assign var="parts" value=" > "|explode:$category_name}
-                                                {foreach from=$parts item=part name=partLoop}
-                                                    {if $smarty.foreach.partLoop.index == 0}
-                                                        <span class="badge badge-info">Rayon: {$part|trim|escape:'htmlall':'UTF-8'}</span>
-                                                    {elseif $smarty.foreach.partLoop.index == 1}
-                                                        <span class="badge badge-success">Famille:
-                                                            {$part|trim|escape:'htmlall':'UTF-8'}</span>
-                                                    {elseif $smarty.foreach.partLoop.index == 2}
-                                                        <span class="badge badge-warning">S-Fam:
-                                                            {$part|trim|escape:'htmlall':'UTF-8'}</span>
-                                                    {/if}
-                                                {/foreach}
+                                                {if $parts|@count >= 1 && $parts[0]|trim != ''}
+                                                    <span class="badge badge-info">
+                                                        {$parts[0]|escape:'htmlall':'UTF-8'}</span>
+                                                {/if}
+                                                {if $parts|@count >= 2 && $parts[1]|trim != ''}
+                                                    <span class="badge badge-success">
+                                                        {$parts[1]|escape:'htmlall':'UTF-8'}</span>
+                                                {/if}
+                                                {if $parts|@count >= 3 && $parts[2]|trim != ''}
+                                                    <span class="badge badge-warning">
+                                                        {$parts[2]|escape:'htmlall':'UTF-8'}</span>
+                                                {/if}
                                             </div>
-                                        {else}
-                                            {* Affichage simple *}
-                                            <div class="simple-category">
-                                                <i class="icon-tag text-muted"></i>
-                                                <strong>{$category_name|escape:'htmlall':'UTF-8'}</strong>
-                                                <small class="text-muted">({l s='Simple category' mod='pfproductimporter'})</small>
-                                            </div>
-                                        {/if}
+
+                                        </div>
                                     </div>
                                     <input type="hidden" name="cat_map[]" value="{$category_name|escape:'htmlall':'UTF-8'}" />
                                 </td>
@@ -105,13 +97,7 @@
                                         {/foreach}
                                     </select>
                                 </td>
-                                <td class="text-center">
-                                    <button type="button" class="btn btn-xs btn-default preview-btn"
-                                        onclick="previewMapping(this)"
-                                        title="{l s='Preview this mapping' mod='pfproductimporter'}">
-                                        <i class="icon-eye"></i>
-                                    </button>
-                                </td>
+
                             </tr>
                         {/foreach}
                     {else}
@@ -138,50 +124,17 @@
                 </button>
             </div>
             <div class="pull-right">
-                <button type="submit" name="Submitimportpreview" class="btn btn-primary btn-lg">
-                    <i class="icon-save"></i>
+                <button type="submit" name="Submitimportpreview" class="btn btn-primary">
+
                     {l s='Save Category Mapping' mod='pfproductimporter'}
                 </button>
             </div>
             <div class="clearfix"></div>
         </div>
     </form>
-
-    <div id="preview-modal" class="custom-modal">
-        <div class="modal-content">
-            <span class="close-btn" onclick="closePreviewModal()">&times;</span>
-            <h4>{l s='Category Mapping Preview' mod='pfproductimporter'}</h4>
-            <p><strong>Rezomatic:</strong> <span id="modal-rezomatic"></span></p>
-            <p><strong>PrestaShop:</strong> <span id="modal-prestashop"></span></p>
-        </div>
-    </div>
-
 </div>
 
 <style>
-    .custom-modal {
-        display: none;
-        position: fixed;
-        z-index: 9999;
-        left: 0;
-        top: 0;
-        width: 100%;
-        height: 100%;
-        overflow: auto;
-        background-color: rgba(0, 0, 0, 0.5);
-    }
-
-    .modal-content {
-        background-color: #fff;
-        margin: 10% auto;
-        padding: 20px;
-        border-radius: 8px;
-        width: 400px;
-        max-width: 90%;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-        position: relative;
-    }
-
     .close-btn {
         color: #aaa;
         float: right;
@@ -275,7 +228,7 @@
     .hierarchy-parts .badge {
         margin-right: 5px;
         margin-bottom: 3px;
-        font-size: 10px;
+        font-size: 0.8rem;
         padding: 3px 6px;
     }
 
@@ -289,17 +242,7 @@
     }
 
     .button-group {
-        border-top: 2px solid #f0f0f0;
-        padding-top: 20px;
-        margin-top: 25px;
-    }
-
-    .preview-btn {
-        border: 1px solid #ddd;
-    }
-
-    .preview-btn:hover {
-        background-color: #f5f5f5;
+        margin-top: 20px;
     }
 
     @media (max-width: 768px) {
@@ -373,30 +316,6 @@
         });
         updateMappingStats();
     }
-
-    function previewMapping(btn) {
-        var row = btn.closest('tr');
-        var categoryName = row.dataset.category;
-        var select = row.querySelector('select');
-        var selectedText = select.options[select.selectedIndex].text;
-
-        if (select.value === '0') {
-            alert('{l s="Please select a PrestaShop category first." mod="pfproductimporter" js=1}');
-            return;
-        }
-
-        // Injecter le contenu dans la modale
-        document.getElementById('modal-rezomatic').textContent = categoryName;
-        document.getElementById('modal-prestashop').textContent = selectedText.trim();
-
-        // Afficher la modale
-        document.getElementById('preview-modal').style.display = 'block';
-    }
-
-    function closePreviewModal() {
-        document.getElementById('preview-modal').style.display = 'none';
-    }
-
 
     // Initialiser les stats au chargement
     document.addEventListener('DOMContentLoaded', function() {

@@ -130,8 +130,8 @@
             <div role="tabpanel" class="tab-pane {if $active_tab == 'customer'}active{/if}" id="customer_tab">
                 {include file="module:pfproductimporter/views/templates/admin/customer_settings.tpl"}
                 <div class="panel-footer">
-                    <button type="submit" name="SubmitExportcustomer" class="btn btn-default pull-right">
-                        <i class="process-icon-save"></i> {l s='Export Customers' mod='pfproductimporter'}
+                    <button type="submit" name="SubmitSaveMainSettings" class="btn btn-default pull-right">
+                        <i class="process-icon-save"></i> {l s='Settings Customers' mod='pfproductimporter'}
                     </button>
                 </div>
             </div>

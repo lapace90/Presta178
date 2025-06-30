@@ -83,7 +83,7 @@
         </table>
 
         <div class="button-group">
-            <input type="submit" name="SubmitSaveFields" class="button" value="{l s='Save' mod='pfproductimporter'}" />
+            <input type="submit" name="SubmitSaveFields" class="btn btn-primary" value="{l s='Save' mod='pfproductimporter'}" />
         </div>
         <hr>
     </form>

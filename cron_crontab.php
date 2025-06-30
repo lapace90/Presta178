@@ -58,7 +58,7 @@ if (Tools::getIsset('secure_key')) {
                 // DELETE CLIENTS
                 $output .= $pfproductimporter->deleteCustomer();
                 // UPDATE CLIENTS
-                $output .= CustomerVccsv::importCustomer();
+                // $output .= CustomerVccsv::importCustomer();
             }
             // UPDATE COMMANDES
             if (Configuration::get('PI_UPDATE_ORDER_STATUS') == '1') {

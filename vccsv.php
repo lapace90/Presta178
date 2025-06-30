@@ -654,144 +654,43 @@ class Vccsv
      */
     public static function getCategoriesFromFeed($feedurl, $field, $fieldproduct)
     {
-        $cat_array = [];
-        $softwareid = Configuration::get('PI_SOFTWAREID');
+        $catArray = [];
+        $softwareId = Configuration::get('PI_SOFTWAREID');
 
         try {
-            $sc = new SoapClient($feedurl, ['keep_alive' => false]);
+            $soapClient = new SoapClient($feedurl, ['keep_alive' => false]);
+            $timestampOld = '2020-01-01 00:00:00';
+            $articles = $soapClient->getNewArticles($softwareId, $timestampOld, 0);
 
-            // Au lieu de récupérer juste une dimension, on récupère tous les articles
-            // pour analyser leurs catégories hiérarchiques
-            $timestamp_old = '2020-01-01 00:00:00';
-            $art = $sc->getNewArticles($softwareid, $timestamp_old, 0);
-
-            if (!empty($art->article)) {
-                $articles = is_array($art->article) ? $art->article : [$art->article];
-
-                $unique_hierarchies = [];
+            if (!empty($articles->article)) {
+                $articles = is_array($articles->article) ? $articles->article : [$articles->article];
+                $uniqueHierarchies = [];
 
                 foreach ($articles as $article) {
-                    $article_array = (array) $article;
+                    $articleArray = (array) $article;
 
-                    // Récupérer les 3 niveaux
-                    $rayon = isset($article_array['rayon']) ? trim($article_array['rayon']) : '';
-                    $famille = isset($article_array['fam']) ? trim($article_array['fam']) : '';
-                    $sous_famille = isset($article_array['sFam']) ? trim($article_array['sFam']) : '';
+                    // Nettoyage des champs
+                    $rayon = isset($articleArray['rayon']) ? trim($articleArray['rayon']) : '';
+                    $famille = isset($articleArray['fam']) ? trim($articleArray['fam']) : '';
+                    $sousFamille = isset($articleArray['sFam']) ? trim($articleArray['sFam']) : '';
 
-                    // Construire la hiérarchie selon ce qui est disponible
-                    $hierarchy_parts = [];
+                    // Conserver une structure constante sans préfixes
+                    $fullHierarchy = "$rayon > $famille > $sousFamille";
 
-                    if (!empty($rayon)) {
-                        $hierarchy_parts[] = $rayon;
-                    }
-                    if (!empty($famille)) {
-                        $hierarchy_parts[] = $famille;
-                    }
-                    if (!empty($sous_famille)) {
-                        $hierarchy_parts[] = $sous_famille;
-                    }
-
-                    // Créer la chaîne hiérarchique
-                    if (!empty($hierarchy_parts)) {
-                        $full_hierarchy = implode(' > ', $hierarchy_parts);
-
-                        // Ajouter à la liste unique si pas déjà présent
-                        if (!in_array($full_hierarchy, $unique_hierarchies)) {
-                            $unique_hierarchies[] = $full_hierarchy;
-                        }
-                    }
-
-                    // Garder aussi la compatibilité avec l'ancien système (famille seule)
-                    if (!empty($famille) && !in_array($famille, $unique_hierarchies)) {
-                        $unique_hierarchies[] = $famille;
+                    if (!in_array($fullHierarchy, $uniqueHierarchies)) {
+                        $uniqueHierarchies[] = $fullHierarchy;
                     }
                 }
 
-                // Trier et retourner
-                sort($unique_hierarchies);
-                $cat_array = $unique_hierarchies;
+                sort($uniqueHierarchies);
+                $catArray = $uniqueHierarchies;
             }
         } catch (Exception $e) {
-            // Fallback vers l'ancien système en cas d'erreur
-            switch ($field) {
-                case 'rayon':
-                    $method = 'getAllRayons';
-                    break;
-                case 'sFam':
-                    $method = 'getAllSousFamilles';
-                    break;
-                case 'type':
-                    $method = 'getAllTypes';
-                    break;
-                default:
-                    $method = 'getAllFamilles';
-            }
-
-            $res = $sc->$method($softwareid);
-            if (!empty($res->poste)) {
-                if (is_array($res->poste)) {
-                    $res = $res->poste;
-                } else {
-                    $res = [$res->poste];
-                }
-                foreach ($res as $col) {
-                    $cat_array[] = $col;
-                }
-            }
+            error_log("SOAP Error: " . $e->getMessage());
         }
 
-        return $cat_array;
+        return $catArray;
     }
-
-
-    /**
-     * Fonction helper pour trouver le mapping d'une catégorie
-     * en cherchant d'abord la hiérarchie complète, puis les parties
-     */
-    public static function findCategoryMapping($rayon, $famille, $sous_famille, $feedid = 1)
-    {
-        // Construire la hiérarchie complète
-        $hierarchy_parts = [];
-        if (!empty(trim($rayon))) {
-            $hierarchy_parts[] = trim($rayon);
-        }
-        if (!empty(trim($famille))) {
-            $hierarchy_parts[] = trim($famille);
-        }
-        if (!empty(trim($sous_famille))) {
-            $hierarchy_parts[] = trim($sous_famille);
-        }
-
-        if (empty($hierarchy_parts)) {
-            return false;
-        }
-
-        // Essayer d'abord la hiérarchie complète
-        $full_hierarchy = implode(' > ', $hierarchy_parts);
-        $row = self::getFeedByVal($full_hierarchy, $feedid);
-        if ($row) {
-            return $row;
-        }
-
-        // Puis essayer avec famille seule (compatibilité)
-        if (!empty($famille)) {
-            $row = self::getFeedByVal($famille, $feedid);
-            if ($row) {
-                return $row;
-            }
-        }
-
-        // Enfin essayer avec rayon seul
-        if (!empty($rayon)) {
-            $row = self::getFeedByVal($rayon, $feedid);
-            if ($row) {
-                return $row;
-            }
-        }
-
-        return false;
-    }
-
 
     /**
      * arraySearchKeyCategory function.

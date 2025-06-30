@@ -179,10 +179,8 @@ class PfProductImporter extends Module
         } elseif (Tools::isSubmit('Submitimportpreview')) {
             // 4. Save Category Mapping
             Vccsv::createCategoryMappings();
-            $output .= Vccsv::saveCategoryMappings($this);
+            $output = Vccsv::saveCategoryMappings($this);
 
-            // $output .= Vccsv::buildMappingCategoryForm($this);
-            $output .= $this->renderMainSettingsForm();
             return $output;
         } elseif (Tools::isSubmit('Submitimportprocess')) {
             // 5. Import CSV catalog
@@ -205,7 +203,12 @@ class PfProductImporter extends Module
             return $output;
         } elseif (Tools::isSubmit('SubmitImportcustomer')) {
             // TODO : Bloc à supprimer ?
-            $output = CustomerVccsv::importCustomer();
+            // $output = CustomerVccsv::importCustomer();
+            if (!empty($output)) {
+                $output = $this->displayError($output);
+            } else {
+                $output = $this->displayConfirmation($this->l('Paramètres des clients enregistrés avec succès.'));
+            }
             return $output;
         } elseif (Tools::isSubmit('Submitdirectimport')) {
             // TODO : Bloc à supprimer ?
@@ -1543,37 +1546,21 @@ class PfProductImporter extends Module
                         } else {
                             $category = trim($catarr[0]);
                         }
-
-                        // NOUVEAU : Essayer d'abord avec la hiérarchie complète
-                        $rayon = isset($tabledata['rayon']) && isset($feedproduct[$tabledata['rayon']]) ?
-                            $feedproduct[$tabledata['rayon']] : '';
-                        $famille = isset($tabledata['fam']) && isset($feedproduct[$tabledata['fam']]) ?
-                            $feedproduct[$tabledata['fam']] : '';
-                        $sous_famille = isset($tabledata['sFam']) && isset($feedproduct[$tabledata['sFam']]) ?
-                            $feedproduct[$tabledata['sFam']] : '';
-
-                        // Chercher le mapping avec la hiérarchie
-                        $mapping = Vccsv::findCategoryMapping($rayon, $famille, $sous_famille);
-
-                        if ($mapping && isset($mapping['system_catid'])) {
-                            $product->category = [(int) $mapping['system_catid']];
-                        } else {
-                            // Fallback vers l'ancien système
-                            $row = Db::getInstance()->getRow('SELECT system_catid, xml_catid, create_new FROM `' . _DB_PREFIX_ .
-                                'pfi_import_feed_catfields_csv` WHERE xml_catid = "' . pSQL($category) . '"');
-                            if (isset($row['system_catid']) && $row['system_catid'] > 0) {
-                                if (isset($row['create_new']) && $row['create_new'] == 1) {
-                                    if (is_numeric($row['xml_catid'])) {
-                                        $product->category = [$row['system_catid']];
-                                    } else {
-                                        $product->category = [$category];
-                                    }
-                                } else {
+                        $row = Db::getInstance()->getRow('SELECT system_catid, xml_catid, create_new FROM `' . _DB_PREFIX_ .
+                            'pfi_import_feed_catfields_csv` WHERE xml_catid = "' . pSQL($category) . '"');
+                        if (isset($row['system_catid']) && $row['system_catid'] > 0) {
+                            if (isset($row['create_new']) && $row['create_new'] == 1) {
+                                // $parentcat = $row['system_catid'];
+                                if (is_numeric($row['xml_catid'])) {
                                     $product->category = [$row['system_catid']];
+                                } else {
+                                    $product->category = [$category];
                                 }
                             } else {
-                                $product->category = [$category];
+                                $product->category = [$row['system_catid']];
                             }
+                        } else {
+                            $product->category = [$category];
                         }
 
                         if ((int) $fixcategory > 0) { // fixcategory
@@ -1584,6 +1571,8 @@ class PfProductImporter extends Module
 
                         if ($product->id_category_default == '') {
                             $product->id_category_default = 2;
+                            // $linecounterror = $linecounterror + 1;
+                            // continue;
                         }
                     }
                     ProductVccsv::setproductlinkRewrite($product, $default_language_id, $languages);
@@ -2173,6 +2162,13 @@ class PfProductImporter extends Module
             }
         }
 
+        $allow_customerimport = Configuration::get('PI_ALLOW_CUSTOMERIMPORT');
+
+        if ($allow_customerimport == 1) {
+            // UPDATE CLIENTS (comme avant)
+            $output .= CustomerVccsv::importCustomer();
+        }
+
         if ($iscron == 1) {
             echo '-------------------------------------------------<br/>';
             echo $this->l('No.of Entries processed') . ' : ' . $linecount . '<br/>';
@@ -2182,6 +2178,9 @@ class PfProductImporter extends Module
             echo $this->l('No.of Products created') . ' : ' . $linecountadded . '<br/>';
             echo '-------------------------------------------------<br/>';
             echo $this->l('No.of Products updated') . ' : ' . $linecountedited . '<br/>';
+            echo '-------------------------------------------------<br/>';
+            echo $this->l('No.of Customers processed') .' : ' . CustomerVccsv::$last_import_stats['processed'] . '<br/>';
+            echo '-------------------------------------------------<br/>';
 
             /*
              * @edit Definima
