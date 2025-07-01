@@ -1,6 +1,6 @@
 <div class="import-form">
     <h2 class="form-title">
-        {l s='Map Categories' mod='pfproductimporter'}
+        Associer les catégories
     </h2>
 
     <form action="" method="post" id="category-mapping-form">
@@ -13,19 +13,19 @@
                 <div class="col-md-4">
                     <div class="stat-box">
                         <div class="stat-number">{count($final_products_arr)}</div>
-                        <div class="stat-label">{l s='Categories Found' mod='pfproductimporter'}</div>
+                        <div class="stat-label">Catégories trouvées</div>
                     </div>
                 </div>
                 <div class="col-md-4">
                     <div class="stat-box">
                         <div class="stat-number" id="hierarchy-count">0</div>
-                        <div class="stat-label">{l s='With Hierarchy' mod='pfproductimporter'}</div>
+                        <div class="stat-label">Avec hiérarchie</div>
                     </div>
                 </div>
                 <div class="col-md-4">
                     <div class="stat-box">
                         <div class="stat-number" id="mapped-count">0</div>
-                        <div class="stat-label">{l s='Already Mapped' mod='pfproductimporter'}</div>
+                        <div class="stat-label">Déjà associées</div>
                     </div>
                 </div>
             </div>
@@ -37,11 +37,11 @@
                     <tr>
                         <th width="50%">
                             <i class="icon-tags"></i>
-                            {l s='Rezomatic Category' mod='pfproductimporter'}
+                            Catégorie Rezomatic
                         </th>
                         <th width="40%">
                             <i class="icon-folder-open"></i>
-                            {l s='PrestaShop Category' mod='pfproductimporter'}
+                            Catégorie PrestaShop
                         </th>
                     </tr>
                 </thead>
@@ -56,11 +56,6 @@
                             <tr class="category-row" data-category="{$category_name|escape:'htmlall':'UTF-8'}">
                                 <td>
                                     <div class="category-display">
-                                        {* <div class="hierarchy-path">
-                                            <i class="icon-sitemap text-success"></i>
-                                            <strong>{$category_name|escape:'htmlall':'UTF-8'}</strong>
-                                        </div> *}
-
                                         <div class="hierarchy-parts">
                                             {assign var="parts" value=" > "|explode:$category_name}
 
@@ -78,7 +73,6 @@
                                                         {$parts[2]|escape:'htmlall':'UTF-8'}</span>
                                                 {/if}
                                             </div>
-
                                         </div>
                                     </div>
                                     <input type="hidden" name="cat_map[]" value="{$category_name|escape:'htmlall':'UTF-8'}" />
@@ -86,8 +80,7 @@
                                 <td>
                                     <select class="select-category form-control" name="system_cat[]"
                                         onchange="updateMappingStats()">
-                                        <option value="0">{l s='-- Select PrestaShop Category --' mod='pfproductimporter'}
-                                        </option>
+                                        <option value="0">-- Sélectionner une catégorie PrestaShop --</option>
                                         {foreach from=$categoryOptionsArray item=option}
                                             <option value="{$option.id_category|intval}"
                                                 {if $row && isset($row.system_catid) && $row.system_catid == $option.id_category}selected="selected"
@@ -97,14 +90,13 @@
                                         {/foreach}
                                     </select>
                                 </td>
-
                             </tr>
                         {/foreach}
                     {else}
                         <tr>
                             <td colspan="3" class="text-center alert alert-warning">
                                 <i class="icon-warning"></i>
-                                {l s='No categories found. Please check your feed connection.' mod='pfproductimporter'}
+                                Aucune catégorie trouvée. Veuillez vérifier votre connexion au flux.
                             </td>
                         </tr>
                     {/if}
@@ -116,17 +108,16 @@
             <div class="pull-left">
                 <button type="button" class="btn btn-default" onclick="clearAllMappings()">
                     <i class="icon-eraser"></i>
-                    {l s='Clear All' mod='pfproductimporter'}
+                    Tout effacer
                 </button>
                 <button type="button" class="btn btn-info" onclick="autoSuggestMappings()">
                     <i class="icon-magic"></i>
-                    {l s='Auto-suggest' mod='pfproductimporter'}
+                    Suggestion automatique
                 </button>
             </div>
             <div class="pull-right">
                 <button type="submit" name="Submitimportpreview" class="btn btn-primary">
-
-                    {l s='Save Category Mapping' mod='pfproductimporter'}
+                    Sauvegarder l'association des catégories
                 </button>
             </div>
             <div class="clearfix"></div>
@@ -272,12 +263,10 @@
             var categoryName = row.dataset.category;
             var select = row.querySelector('select');
 
-            // Compter les hiérarchies
             if (categoryName.indexOf(' > ') !== -1) {
                 hierarchyCount++;
             }
 
-            // Compter les mappages
             if (select.value !== '0') {
                 mappedCount++;
             }
@@ -288,22 +277,20 @@
     }
 
     function clearAllMappings() {
-        if (confirm('{l s="Clear all mappings?" mod="pfproductimporter" js=1}')) {
-        document.querySelectorAll('.select-category').forEach(function(select) {
-            select.selectedIndex = 0;
-        });
-        updateMappingStats();
-    }
+        if (confirm('Effacer toutes les associations ?')) {
+            document.querySelectorAll('.select-category').forEach(function(select) {
+                select.selectedIndex = 0;
+            });
+            updateMappingStats();
+        }
     }
 
     function autoSuggestMappings() {
-        // Logique d'auto-suggestion basée sur les noms
         document.querySelectorAll('.category-row').forEach(function(row) {
             var categoryName = row.dataset.category.toLowerCase();
             var select = row.querySelector('select');
 
             if (select.value === '0') {
-                // Chercher une correspondance approximative
                 for (var i = 1; i < select.options.length; i++) {
                     var optionText = select.options[i].text.toLowerCase();
                     if (categoryName.indexOf(optionText.trim()) !== -1 ||
@@ -317,11 +304,8 @@
         updateMappingStats();
     }
 
-    // Initialiser les stats au chargement
     document.addEventListener('DOMContentLoaded', function() {
         updateMappingStats();
-
-        // Ajouter les événements onChange
         document.querySelectorAll('.select-category').forEach(function(select) {
             select.addEventListener('change', updateMappingStats);
         });

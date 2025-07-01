@@ -1,115 +1,118 @@
 <div class="form-section">
-    <h3>{l s='Product Import/Export' mod='pfproductimporter'}</h3>
+    <h3>Import/Export de produits</h3>
     <div class="row">
-        <!-- Import Column -->
+        <!-- Colonne Import -->
         <div class="col-lg-6">
-            <h4>{l s='Import Settings' mod='pfproductimporter'}</h4>
+            <h4 class="semi-titre">Paramètres d'import</h4>
 
-            <!-- Enable product import -->
+            <!-- Activer l'import de produits -->
             <div class="form-group">
-                <label class="control-label col-lg-4">{l s='Enable product import' mod='pfproductimporter'}</label>
+                <label class="control-label col-lg-4">Activer l'import de produits</label>
                 <div class="col-lg-8">
                     <span class="switch prestashop-switch fixed-width-lg">
                         <input type="radio" name="PI_ALLOW_PRODUCTIMPORT" id="PI_ALLOW_PRODUCTIMPORT_on" value="1"
                             {if $fields_value.PI_ALLOW_PRODUCTIMPORT}checked{/if}>
-                        <label for="PI_ALLOW_PRODUCTIMPORT_on">{l s='Yes' mod='pfproductimporter'}</label>
+                        <label for="PI_ALLOW_PRODUCTIMPORT_on">Oui</label>
                         <input type="radio" name="PI_ALLOW_PRODUCTIMPORT" id="PI_ALLOW_PRODUCTIMPORT_off" value="0"
                             {if !$fields_value.PI_ALLOW_PRODUCTIMPORT}checked{/if}>
-                        <label for="PI_ALLOW_PRODUCTIMPORT_off">{l s='No' mod='pfproductimporter'}</label>
+                        <label for="PI_ALLOW_PRODUCTIMPORT_off">Non</label>
                         <a class="slide-button btn"></a>
                     </span>
                     <p class="help-block">
-                        {l s='Import products from Rezomatic into Prestashop.' mod='pfproductimporter'}</p>
+                        Importer les produits de Rezomatic vers PrestaShop.
+                    </p>
                 </div>
             </div>
 
-            <!-- Enable product image import -->
+            <!-- Activer l'import d'images -->
             <div class="form-group">
-                <label
-                    class="control-label col-lg-4">{l s='Enable product image import' mod='pfproductimporter'}</label>
+                <label class="control-label col-lg-4">Activer l'import d'images produit</label>
                 <div class="col-lg-8">
                     <span class="switch prestashop-switch fixed-width-lg">
                         <input type="radio" name="PI_ALLOW_PRODUCTIMAGEIMPORT" id="PI_ALLOW_PRODUCTIMAGEIMPORT_on"
                             value="1" {if $fields_value.PI_ALLOW_PRODUCTIMAGEIMPORT}checked{/if}>
-                        <label for="PI_ALLOW_PRODUCTIMAGEIMPORT_on">{l s='Yes' mod='pfproductimporter'}</label>
+                        <label for="PI_ALLOW_PRODUCTIMAGEIMPORT_on">Oui</label>
                         <input type="radio" name="PI_ALLOW_PRODUCTIMAGEIMPORT" id="PI_ALLOW_PRODUCTIMAGEIMPORT_off"
                             value="0" {if !$fields_value.PI_ALLOW_PRODUCTIMAGEIMPORT}checked{/if}>
-                        <label for="PI_ALLOW_PRODUCTIMAGEIMPORT_off">{l s='No' mod='pfproductimporter'}</label>
+                        <label for="PI_ALLOW_PRODUCTIMAGEIMPORT_off">Non</label>
                         <a class="slide-button btn"></a>
                     </span>
                 </div>
             </div>
-            <!-- Enable designation update -->
+
+            <!-- Activer la mise à jour des désignations -->
             <div class="form-group">
-                <label class="control-label col-lg-4">{l s='Enable designation update' mod='pfproductimporter'}</label>
+                <label class="control-label col-lg-4">Activer la mise à jour des désignations</label>
                 <div class="col-lg-8">
                     <span class="switch prestashop-switch fixed-width-lg">
                         <input type="radio" name="PI_UPDATE_DESIGNATION" id="PI_UPDATE_DESIGNATION_on" value="1"
                             {if $fields_value.PI_UPDATE_DESIGNATION}checked{/if}>
-                        <label for="PI_UPDATE_DESIGNATION_on">{l s='Yes' mod='pfproductimporter'}</label>
+                        <label for="PI_UPDATE_DESIGNATION_on">Oui</label>
                         <input type="radio" name="PI_UPDATE_DESIGNATION" id="PI_UPDATE_DESIGNATION_off" value="0"
                             {if !$fields_value.PI_UPDATE_DESIGNATION}checked{/if}>
-                        <label for="PI_UPDATE_DESIGNATION_off">{l s='No' mod='pfproductimporter'}</label>
+                        <label for="PI_UPDATE_DESIGNATION_off">Non</label>
                         <a class="slide-button btn"></a>
                     </span>
                     <p class="help-block">
-                        {l s='Update article designation from Rezomatic to Prestashop.' mod='pfproductimporter'}</p>
+                        Mettre à jour les désignations d'articles de Rezomatic vers PrestaShop.
+                    </p>
                 </div>
             </div>
-            <!-- Enable imported products -->
+
+            <!-- Activer les produits importés -->
             <div class="form-group">
-                <label class="control-label col-lg-4">{l s='Enable imported products' mod='pfproductimporter'}</label>
+                <label class="control-label col-lg-4">Activer les produits importés</label>
                 <div class="col-lg-8">
                     <span class="switch prestashop-switch fixed-width-lg">
                         <input type="radio" name="PI_ACTIVE" id="PI_ACTIVE_on" value="1"
                             {if $fields_value.PI_ACTIVE}checked{/if}>
-                        <label for="PI_ACTIVE_on">{l s='Yes' mod='pfproductimporter'}</label>
+                        <label for="PI_ACTIVE_on">Oui</label>
                         <input type="radio" name="PI_ACTIVE" id="PI_ACTIVE_off" value="0"
                             {if !$fields_value.PI_ACTIVE}checked{/if}>
-                        <label for="PI_ACTIVE_off">{l s='No' mod='pfproductimporter'}</label>
+                        <label for="PI_ACTIVE_off">Non</label>
                         <a class="slide-button btn"></a>
                     </span>
                 </div>
             </div>
         </div>
 
-        <!-- Export Column -->
+        <!-- Colonne Export -->
         <div class="col-lg-6">
-            <h4>{l s='Export Settings' mod='pfproductimporter'}</h4>
+            <h4 class="semi-titre">Paramètres d'export</h4>
 
-            <!-- Enable product export -->
+            <!-- Activer l'export de produits -->
             <div class="form-group">
-                <label class="control-label col-lg-4">{l s='Enable product export' mod='pfproductimporter'}</label>
+                <label class="control-label col-lg-4">Activer l'export de produits</label>
                 <div class="col-lg-8">
                     <span class="switch prestashop-switch fixed-width-lg">
                         <input type="radio" name="PI_ALLOW_PRODUCTEXPORT" id="PI_ALLOW_PRODUCTEXPORT_on" value="1"
                             {if $fields_value.PI_ALLOW_PRODUCTEXPORT}checked{/if}>
-                        <label for="PI_ALLOW_PRODUCTEXPORT_on">{l s='Yes' mod='pfproductimporter'}</label>
+                        <label for="PI_ALLOW_PRODUCTEXPORT_on">Oui</label>
                         <input type="radio" name="PI_ALLOW_PRODUCTEXPORT" id="PI_ALLOW_PRODUCTEXPORT_off" value="0"
                             {if !$fields_value.PI_ALLOW_PRODUCTEXPORT}checked{/if}>
-                        <label for="PI_ALLOW_PRODUCTEXPORT_off">{l s='No' mod='pfproductimporter'}</label>
+                        <label for="PI_ALLOW_PRODUCTEXPORT_off">Non</label>
                         <a class="slide-button btn"></a>
                     </span>
-                    <p class="help-block">{l s='Export products from Prestashop to Rezomatic.' mod='pfproductimporter'}
-                    </p>
+                    <p class="help-block">Exporter les produits de PrestaShop vers Rezomatic.</p>
                 </div>
             </div>
 
-            <!-- Enable category export -->
+            <!-- Activer l'export de catégories -->
             <div class="form-group">
-                <label class="control-label col-lg-4">{l s='Enable categories export' mod='pfproductimporter'}</label>
+                <label class="control-label col-lg-4">Activer l'export de catégories</label>
                 <div class="col-lg-8">
                     <span class="switch prestashop-switch fixed-width-lg">
                         <input type="radio" name="PI_ALLOW_CATEGORYEXPORT" id="PI_ALLOW_CATEGORYEXPORT_on" value="1"
                             {if $fields_value.PI_ALLOW_CATEGORYEXPORT}checked{/if}>
-                        <label for="PI_ALLOW_CATEGORYEXPORT_on">{l s='Yes' mod='pfproductimporter'}</label>
+                        <label for="PI_ALLOW_CATEGORYEXPORT_on">Oui</label>
                         <input type="radio" name="PI_ALLOW_CATEGORYEXPORT" id="PI_ALLOW_CATEGORYEXPORT_off" value="0"
                             {if !$fields_value.PI_ALLOW_CATEGORYEXPORT}checked{/if}>
-                        <label for="PI_ALLOW_CATEGORYEXPORT_off">{l s='No' mod='pfproductimporter'}</label>
+                        <label for="PI_ALLOW_CATEGORYEXPORT_off">Non</label>
                         <a class="slide-button btn"></a>
                     </span>
                     <p class="help-block">
-                        {l s='Export categories from Prestashop to Rezomatic.' mod='pfproductimporter'}</p>
+                        Exporter les catégories de PrestaShop vers Rezomatic.
+                    </p>
                 </div>
             </div>
         </div>
@@ -119,7 +122,7 @@
     <div class="row" style="margin-top: 3rem;">
         <div class="col-lg-6">
             <div class="form-group">
-                <label class="control-label col-lg-4">{l s='Manual import' mod='pfproductimporter'}</label>
+                <label class="control-label col-lg-4">Import manuel</label>
                 <div class="col-lg-8">
                     <form action="" method="post">
                         <input type="hidden" name="feedid" value="{$feedid|escape:'htmlall':'UTF-8'}" />
@@ -129,23 +132,22 @@
                     </form>
                     {include file="module:pfproductimporter/views/templates/hook/importallcatalog.tpl"}
                     <p class="help-block">
-                        {l s='Manually trigger product import. This may take a few minutes.' mod='pfproductimporter'}
+                        Déclencher manuellement l'import de produits. Cela peut prendre quelques minutes.
                     </p>
-
                 </div>
             </div>
         </div>
 
         <div class="col-lg-6">
             <div class="form-group">
-                <label class="control-label col-lg-4">{l s='Manual export' mod='pfproductimporter'}</label>
+                <label class="control-label col-lg-4">Export manuel</label>
                 <div class="col-lg-8">
                     <form action="" method="post">
                         <input type="submit" name="exportallproduct" class="button btn btn-primary"
-                            value="{l s='Start export process' mod='pfproductimporter'}" />
+                            value="Démarrer le processus d'export" />
                     </form>
                     <p class="help-block">
-                        {l s='Manually trigger product export to Rezomatic.' mod='pfproductimporter'}
+                        Déclencher manuellement l'export de produits vers Rezomatic.
                     </p>
                 </div>
             </div>
@@ -155,43 +157,52 @@
 
 <hr>
 
-<!-- Enable sales import -->
+<!-- Activer l'import des ventes -->
 <div class="form-group">
-    <label class="control-label col-lg-3">{l s='Enable sales import' mod='pfproductimporter'}</label>
+    <label class="control-label col-lg-3">Activer l'import des ventes</label>
     <div class="col-lg-8">
         <span class="switch prestashop-switch fixed-width-lg">
             <input type="radio" name="PI_ALLOW_PRODUCTSALESIMPORT" id="PI_ALLOW_PRODUCTSALESIMPORT_on" value="1"
                 {if $fields_value.PI_ALLOW_PRODUCTSALESIMPORT}checked{/if}>
-            <label for="PI_ALLOW_PRODUCTSALESIMPORT_on">{l s='Yes' mod='pfproductimporter'}</label>
+            <label for="PI_ALLOW_PRODUCTSALESIMPORT_on">Oui</label>
             <input type="radio" name="PI_ALLOW_PRODUCTSALESIMPORT" id="PI_ALLOW_PRODUCTSALESIMPORT_off" value="0"
                 {if !$fields_value.PI_ALLOW_PRODUCTSALESIMPORT}checked{/if}>
-            <label for="PI_ALLOW_PRODUCTSALESIMPORT_off">{l s='No' mod='pfproductimporter'}</label>
+            <label for="PI_ALLOW_PRODUCTSALESIMPORT_off">Non</label>
             <a class="slide-button btn"></a>
         </span>
-        <p class="help-block">{l s='Import sales from Rezomatic to Prestashop per product' mod='pfproductimporter'}
-        </p>
+        <p class="help-block">Importer les ventes de Rezomatic vers PrestaShop par produit</p>
     </div>
 </div>
 
-<!-- Sync sales from -->
+<!-- Synchroniser les ventes depuis -->
 <div class="form-group">
-    <label class="control-label col-lg-3">{l s='Sync sales from' mod='pfproductimporter'}</label>
+    <label class="control-label col-lg-3">Synchroniser les ventes depuis</label>
     <div class="col-lg-6">
         <input type="text" name="SYNC_STOCK_PDV" value="{$fields_value.SYNC_STOCK_PDV}" />
-        <p class="help-block">{l s='Leave empty for global sales.' mod='pfproductimporter'}</p>
+        <p class="help-block">Laisser vide pour les ventes globales.</p>
     </div>
 </div>
-<!-- Product reference field -->
+
+<!-- Champ de référence produit -->
 <div class="form-group">
-    <label class="control-label col-lg-3">{l s='Product reference field' mod='pfproductimporter'}</label>
+    <label class="control-label col-lg-3">Champ de référence produit</label>
     <div class="col-lg-6">
         <select name="PI_PRODUCT_REFERENCE">
             <option value="reference" {if $fields_value.PI_PRODUCT_REFERENCE == 'reference'}selected{/if}>
-                {l s='Reference' mod='pfproductimporter'}</option>
+                Référence</option>
             <option value="ean13" {if $fields_value.PI_PRODUCT_REFERENCE == 'ean13'}selected{/if}>
-                {l s='EAN13' mod='pfproductimporter'}</option>
+                EAN13</option>
             <option value="upc" {if $fields_value.PI_PRODUCT_REFERENCE == 'upc'}selected{/if}>
-                {l s='UPC' mod='pfproductimporter'}</option>
+                UPC</option>
         </select>
     </div>
 </div>
+
+<style>
+    .semi-titre {
+        font-weight: bold !important;
+        font-size: 1.2rem !important;
+        padding: 1.6rem;
+        color: #959595 !important;
+    }
+</style>

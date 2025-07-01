@@ -8,24 +8,24 @@
 
 <!-- Bouton pour ouvrir la modale -->
 <input type="button" id="openModalBtn" name="Submitimportprocess" class="button btn btn-primary"
-    {if !$fields_value.PI_ALLOW_PRODUCTIMPORT}disabled="disabled" {/if}
-    value="{l s='Start import process' mod='pfproductimporter'}" />
+    {if !$fields_value.PI_ALLOW_PRODUCTIMPORT}disabled="disabled" {/if} value="Démarrer le processus d'import" />
 
 <!-- La modale -->
 <div id="confirmModal" class="modal-overlay" style="display: none;">
     <div class="modal-content">
         <div class="modal-header">
-            <h2>{l s='Confirm catalog import' mod='pfproductimporter'}</h2>
+            <h2>Confirmer l'import du catalogue</h2>
             <span class="modal-close">&times;</span>
         </div>
         <div class="modal-body">
-            <p>{l s='First step completed. The product creation process will start and may take several minutes.' mod='pfproductimporter'}</p>
-            <p><strong>{l s='Please do not interrupt the process once started.' mod='pfproductimporter'}</strong></p>
-            <p>{l s='Do you want to continue?' mod='pfproductimporter'}</p>
+            <p>Première étape terminée. Le processus de création des produits va commencer et peut prendre plusieurs
+                minutes.</p>
+            <p><strong>Veuillez ne pas interrompre le processus une fois démarré.</strong></p>
+            <p>Voulez-vous continuer ?</p>
         </div>
         <div class="modal-footer">
-            <button class="btn btn-cancel modal-cancel">{l s='Cancel' mod='pfproductimporter'}</button>
-            <button type="button" class="btn btn-primary" onclick="startDirectImport()">Import</button>
+            <button class="btn btn-cancel modal-cancel">Annuler</button>
+            <button type="button" class="btn btn-primary" onclick="startDirectImport()">Importer</button>
         </div>
     </div>
 </div>
@@ -43,19 +43,16 @@
 
 <script src="//code.jquery.com/jquery-2.1.4.min.js" type="text/javascript"></script>
 <script type="text/javascript">
-    // Gestion de la modale
     $(document).ready(function() {
         var modal = $('#confirmModal');
         var openBtn = $('#openModalBtn');
         var closeBtn = $('.modal-close');
         var cancelBtn = $('.modal-cancel');
 
-        // Ouvrir la modale
         openBtn.click(function() {
             modal.fadeIn();
         });
 
-        // Fermer la modale
         closeBtn.click(function() {
             modal.fadeOut();
         });
@@ -64,7 +61,6 @@
             modal.fadeOut();
         });
 
-        // Fermer si on clique en dehors
         $(window).click(function(event) {
             if (event.target == modal[0]) {
                 modal.fadeOut();
@@ -77,8 +73,7 @@
         $('.import-status-container').show();
         $('.progress-bar-container').show();
         $('.import-status').text('Import en cours...');
-        
-        // Animation de la barre de progression
+
         var progress = 0;
         var progressInterval = setInterval(function() {
             progress += 2;
@@ -96,7 +91,8 @@
                 clearInterval(progressInterval);
                 $('.progress-bar-fill').css('width', '100%');
                 $('.progress-text').text('100%');
-                $('.import-status').html('<strong style="color: green;">Import terminé avec succès!</strong>');
+                $('.import-status').html(
+                    '<strong style="color: green;">Import terminé avec succès !</strong>');
             },
             error: function() {
                 clearInterval(progressInterval);

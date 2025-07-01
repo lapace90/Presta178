@@ -5,7 +5,7 @@
 
 <div class="custom-import-export-settings panel">
     <div class="panel-heading">
-        <i class="icon-cogs"></i> {l s='Settings' mod='pfproductimporter'}
+        <i class="icon-cogs"></i> Paramètres
     </div>
 
     {if !isset($form_action)}
@@ -29,32 +29,32 @@
         <ul class="nav nav-tabs" role="tablist">
             <li role="presentation" class="{if $active_tab == 'general'}active{/if}">
                 <a href="#general_tab" aria-controls="general" role="tab" data-toggle="tab">
-                    {l s='General' mod='pfproductimporter'}
+                    Général
                 </a>
             </li>
             <li role="presentation" class="{if $active_tab == 'catalog'}active{/if}">
                 <a href="#catalog_tab" aria-controls="catalog" role="tab" data-toggle="tab">
-                    {l s='Catalog' mod='pfproductimporter'}
+                    Catalogue
                 </a>
             </li>
             <li role="presentation" class="{if $active_tab == 'mapping'}active{/if}">
                 <a href="#mapping_tab" aria-controls="mapping" role="tab" data-toggle="tab">
-                    {l s='Mapping' mod='pfproductimporter'}
+                    Associations
                 </a>
             </li>
             <li role="presentation" class="{if $active_tab == 'customer'}active{/if}">
                 <a href="#customer_tab" aria-controls="customer" role="tab" data-toggle="tab">
-                    {l s='Customers' mod='pfproductimporter'}
+                    Clients
                 </a>
             </li>
             <li role="presentation" class="{if $active_tab == 'order'}active{/if}">
                 <a href="#order_tab" aria-controls="order" role="tab" data-toggle="tab">
-                    {l s='Orders' mod='pfproductimporter'}
+                    Commandes
                 </a>
             </li>
             <li role="presentation" class="{if $active_tab == 'payment'}active{/if}">
                 <a href="#payment_tab" aria-controls="payment" role="tab" data-toggle="tab">
-                    {l s='Payment' mod='pfproductimporter'}
+                    Paiements
                 </a>
             </li>
         </ul>
@@ -66,7 +66,7 @@
                 {include file="module:pfproductimporter/views/templates/admin/general_settings.tpl"}
                 <div class="panel-footer">
                     <button type="submit" name="SubmitSaveMainSettings" class="btn btn-default pull-right">
-                        <i class="process-icon-save"></i> {l s='Save General Settings' mod='pfproductimporter'}
+                        <i class="process-icon-save"></i> Sauvegarder les paramètres généraux
                     </button>
                 </div>
             </div>
@@ -76,7 +76,7 @@
                 {include file="module:pfproductimporter/views/templates/admin/catalog_settings.tpl"}
                 <div class="panel-footer">
                     <button type="submit" name="SubmitSaveMainSettings" class="btn btn-default pull-right">
-                        <i class="process-icon-save"></i> {l s='Save Settings' mod='pfproductimporter'}
+                        <i class="process-icon-save"></i> Sauvegarder les paramètres
                     </button>
                 </div>
             </div>
@@ -87,12 +87,12 @@
                 <ul class="nav nav-tabs" role="tablist" style="margin-bottom: 20px;">
                     <li role="presentation" class="active">
                         <a href="#fields_mapping" aria-controls="fields" role="tab" data-toggle="tab">
-                            {l s='Fields Mapping' mod='pfproductimporter'}
+                            Association des champs
                         </a>
                     </li>
                     <li role="presentation">
                         <a href="#category_mapping" aria-controls="category" role="tab" data-toggle="tab">
-                            {l s='Category Mapping' mod='pfproductimporter'}
+                            Association des catégories
                         </a>
                     </li>
                 </ul>
@@ -102,116 +102,126 @@
                     <!-- Sous-onglet Fields Mapping -->
                     <div role="tabpanel" class="tab-pane active" id="fields_mapping">
                         <div class="form-section">
-                            <h3>{l s='Fields Mapping Configuration' mod='pfproductimporter'}</h3>
-                            {if isset($raw_products_arr) && is_array($raw_products_arr)}
-                                {include file="module:pfproductimporter/views/templates/hook/buildmappingfieldsform.tpl"}
-                            {else}
-                                <p>{l s='No fields available for mapping.' mod='pfproductimporter'}</p>
-                            {/if}
-                     
+                            <h3>Configuration de l'association des champs</h3>
+                                {if isset($raw_products_arr) && is_array($raw_products_arr)}
+
+
+
+                                    {include file="module:pfproductimporter/views/templates/hook/buildmappingfieldsform.tpl"}
+
+
+
+                                {else}
+                                    <p>Aucun champ disponible pour l'association.</p>
+                                {/if}
+                            </div>
+                        </div>
+
+                        <!-- Sous-onglet Category Mapping -->
+                        <div role="tabpanel" class="tab-pane" id="category_mapping">
+                            <div class="form-section">
+                                <h3>Configuration de l'association des catégories</h3>
+                                    {if isset($final_products_arr) && is_array($final_products_arr)}
+
+
+
+                                        {include file="module:pfproductimporter/views/templates/hook/mappingcategoryform.tpl"}
+
+
+
+                                    {else}
+                                        <p>Aucune catégorie disponible pour l'association.</p>
+                                    {/if}
+                                </div>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Sous-onglet Category Mapping -->
-                    <div role="tabpanel" class="tab-pane" id="category_mapping">
-                        <div class="form-section">
-                            <h3>{l s='Category Mapping Configuration' mod='pfproductimporter'}</h3>
-                            {if isset($final_products_arr) && is_array($final_products_arr)}
-                                {include file="module:pfproductimporter/views/templates/hook/mappingcategoryform.tpl"}
-                            {else}
-                                <p>{l s='No categories available for mapping.' mod='pfproductimporter'}</p>
-                            {/if}
+                    <!-- Onglet Customers -->
+                    <div role="tabpanel" class="tab-pane {if $active_tab == 'customer'}active{/if}" id="customer_tab">
+                        {include file="module:pfproductimporter/views/templates/admin/customer_settings.tpl"}
+                        <div class="panel-footer">
+                            <button type="submit" name="SubmitSaveMainSettings" class="btn btn-default pull-right">
+                                <i class="process-icon-save"></i> Paramètres clients
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Onglet Orders -->
+                    <div role="tabpanel" class="tab-pane {if $active_tab == 'order'}active{/if}" id="order_tab">
+                        {include file="module:pfproductimporter/views/templates/admin/order_settings.tpl"}
+                        <div class="panel-footer">
+                            <button type="submit" name="SubmitExportorder" class="btn btn-default pull-right">
+                                <i class="process-icon-save"></i> Exporter les commandes
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Onglet Payment -->
+                    <div role="tabpanel" class="tab-pane {if $active_tab == 'payment'}active{/if}" id="payment_tab">
+                        {include file="module:pfproductimporter/views/templates/admin/payment_settings.tpl"}
+                        <div class="panel-footer">
+                            <button type="submit" name="Submitdirectimport" class="btn btn-default pull-right">
+                                <i class="process-icon-save"></i> Lancer l'import des paiements
+                            </button>
                         </div>
                     </div>
                 </div>
-            </div>
-
-            <!-- Onglet Customers -->
-            <div role="tabpanel" class="tab-pane {if $active_tab == 'customer'}active{/if}" id="customer_tab">
-                {include file="module:pfproductimporter/views/templates/admin/customer_settings.tpl"}
-                <div class="panel-footer">
-                    <button type="submit" name="SubmitSaveMainSettings" class="btn btn-default pull-right">
-                        <i class="process-icon-save"></i> {l s='Settings Customers' mod='pfproductimporter'}
-                    </button>
-                </div>
-            </div>
-
-            <!-- Onglet Orders -->
-            <div role="tabpanel" class="tab-pane {if $active_tab == 'order'}active{/if}" id="order_tab">
-                {include file="module:pfproductimporter/views/templates/admin/order_settings.tpl"}
-                <div class="panel-footer">
-                    <button type="submit" name="SubmitExportorder" class="btn btn-default pull-right">
-                        <i class="process-icon-save"></i> {l s='Export Orders' mod='pfproductimporter'}
-                    </button>
-                </div>
-            </div>
-
-            <!-- Onglet Payment -->
-            <div role="tabpanel" class="tab-pane {if $active_tab == 'payment'}active{/if}" id="payment_tab">
-                {include file="module:pfproductimporter/views/templates/admin/payment_settings.tpl"}
-                <div class="panel-footer">
-                    <button type="submit" name="Submitdirectimport" class="btn btn-default pull-right">
-                        <i class="process-icon-save"></i> {l s='Run Payment Import' mod='pfproductimporter'}
-                    </button>
-                </div>
-            </div>
+            </form>
         </div>
 
-    </form>
-</div>
+        <style>
+            .custom-import-export-settings {
+                max-width: 1200px;
+                margin: 20px auto;
+                font-family: Arial, sans-serif;
+                padding: 20px;
+                background-color: #fff;
+                border-radius: 5px;
+                box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            }
 
-<style>
-    .custom-import-export-settings {
-        max-width: 1200px;
-        margin: 20px auto;
-        font-family: Arial, sans-serif;
-        padding: 20px;
-        background-color: #fff;
-        border-radius: 5px;
-        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-    }
+            .custom-import-export-settings .panel-heading {
+                font-size: 1.5em;
+                color: #333;
+                margin-bottom: 20px;
+                padding-bottom: 10px;
+                border-bottom: 1px solid #eee;
+            }
 
-    .custom-import-export-settings .panel-heading {
-        font-size: 1.5em;
-        color: #333;
-        margin-bottom: 20px;
-        padding-bottom: 10px;
-        border-bottom: 1px solid #eee;
-    }
+            .custom-import-export-settings .nav-tabs {
+                border-bottom: 2px solid #2eacce;
+            }
 
-    .custom-import-export-settings .nav-tabs {
-        border-bottom: 2px solid #2eacce;
-    }
+            .custom-import-export-settings .nav-tabs>li.active>a,
+            .custom-import-export-settings .nav-tabs>li.active>a:hover,
+            .custom-import-export-settings .nav-tabs>li.active>a:focus {
+                background-color: #2eacce;
+                color: white;
+                border: 1px solid #2eacce;
+            }
 
-    .custom-import-export-settings .nav-tabs>li.active>a,
-    .custom-import-export-settings .nav-tabs>li.active>a:hover,
-    .custom-import-export-settings .nav-tabs>li.active>a:focus {
-        background-color: #2eacce;
-        color: white;
-        border: 1px solid #2eacce;
-    }
+            .custom-import-export-settings .tab-content {
+                padding: 20px 0;
+            }
 
-    .custom-import-export-settings .tab-content {
-        padding: 20px 0;
-    }
+            .custom-import-export-settings .form-section {
+                margin: 20px 0;
+                padding: 15px;
+                background-color: #f9f9f9;
+                border-radius: 4px;
+            }
 
-    .custom-import-export-settings .form-section {
-        margin: 20px 0;
-        padding: 15px;
-        background-color: #f9f9f9;
-        border-radius: 4px;
-    }
+            .custom-import-export-settings .form-section h3 {
+                margin-top: 0;
+                color: #2eacce;
+                background-color: white !important;
+                padding: 10px;
+            }
 
-    .custom-import-export-settings .form-section h3 {
-        margin-top: 0;
-        color: #2eacce;
-        background-color: white !important;
-        padding: 10px;
-    }
-
-    .custom-import-export-settings .panel-footer {
-        background-color: #f5f5f5;
-        border-top: 1px solid #ddd;
-        margin-top: 20px;
-    }
-</style>
+            .custom-import-export-settings .panel-footer {
+                background-color: #f5f5f5;
+                border-top: 1px solid #ddd;
+                margin-top: 20px;
+            }
+        </style>
