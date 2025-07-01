@@ -389,7 +389,7 @@ class CustomerVccsv extends Vccsv
                         continue;
                     }
 
-                    // NOUVELLE LOGIQUE : Recherche d'abord par email
+                    // Recherche d'abord par email
                     $customer_id = null;
                     $existing_customer = null;
 

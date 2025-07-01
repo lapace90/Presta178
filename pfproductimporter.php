@@ -80,6 +80,7 @@ class PfProductImporter extends Module
             && $this->registerHook('displayHeader')
             && $this->registerHook('actionOrderStatusUpdate')
             && $this->registerHook('actionProductUpdate')
+            && $this->registerHook('displayShoppingCart')
             // && $this->registerHook('actionProductDelete')
             // && $this->registerHook('displayBackOfficeHeader') // @edit Definima  Gestion des déclinaisons @deprecated
         ;
@@ -171,7 +172,12 @@ class PfProductImporter extends Module
             }
             return $output;
         } elseif (Tools::isSubmit('SubmitSaveFields')) {
-            Vccsv::saveFieldMappings($this);
+            $result = Vccsv::saveFieldMappings($this);
+            if ($result) {
+                $output = $this->displayConfirmation($result);
+            } else {
+                $output = $this->displayError('Erreur lors de la sauvegarde');
+            }
             $output .= $this->renderMainSettingsForm();
         } elseif (Tools::isSubmit('Submitmapcategory')) {
             // 3. Category Mapping
@@ -872,6 +878,7 @@ class PfProductImporter extends Module
 
         // Préparer les données pour le mapping si nécessaire
         // Si on a une URL de feed, récupérer les données pour le mapping
+        $raw_products_arr = array();
         $final_products_arr = array();
 
         if ($feedurl && Tools::strlen($feedurl) > 0) {
@@ -879,18 +886,18 @@ class PfProductImporter extends Module
             $raw_products_arr = $this->getFieldsFromFeed($feedurl);
 
             // Si pas de champs, définir des champs par défaut
-            if (empty($raw_products_arr)) {
-                $raw_products_arr = array(
-                    'codeArt' => 'Code Article',
-                    'taille' => 'Taille',
-                    'couleur' => 'Couleur',
-                    'description' => 'Description',
-                    'dArr' => 'Date de création',
-                );
-            }
+            // if (empty($raw_products_arr)) {
+            //     $raw_products_arr = array(
+            //         'codeArt' => 'Code Article',
+            //         'taille' => 'Taille',
+            //         'couleur' => 'Couleur',
+            //         'description' => 'Description',
+            //         'dArr' => 'Date de création',
+            //     );
+            // }
 
             // Récupérer les catégories du feed
-            $fam = Vccsv::getXmlField('id_category_default');
+            $fam = Vccsv::getXmlfield('id_category_default');
             if (empty($fam)) {
 
                 $fam = 'fam';
@@ -2179,7 +2186,7 @@ class PfProductImporter extends Module
             echo '-------------------------------------------------<br/>';
             echo $this->l('No.of Products updated') . ' : ' . $linecountedited . '<br/>';
             echo '-------------------------------------------------<br/>';
-            echo $this->l('No.of Customers processed') .' : ' . CustomerVccsv::$last_import_stats['processed'] . '<br/>';
+            echo $this->l('No.of Customers processed') . ' : ' . CustomerVccsv::$last_import_stats['processed'] . '<br/>';
             echo '-------------------------------------------------<br/>';
 
             /*
@@ -3351,6 +3358,22 @@ class PfProductImporter extends Module
                 echo PHP_EOL;
             }
             echo '</pre>';
+        }
+    }
+
+    /**
+     * hookDisplayShoppingCart function.
+     * Mise à jour des stocks à l'affichage du panier
+     *
+     * @param mixed $params
+     *
+     * @return void
+     */
+    public function hookDisplayShoppingCart($params)
+    {
+        $allow_cart_stock_update = Configuration::get('SYNC_STOCK_PDV');
+        if ($allow_cart_stock_update == 1) {
+            $this->stockSyncCron();
         }
     }
 }

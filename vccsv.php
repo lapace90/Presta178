@@ -358,79 +358,104 @@ class Vccsv
         $qry = 'DELETE FROM `' . _DB_PREFIX_ . 'pfi_import_feed_fields_csv` WHERE feed_id = 1';
         Db::getInstance()->execute($qry);
 
-        $fld_map = Tools::getValue('fld_map');
-        $i = 0;
+        $allMappings = [];
 
-        if (!$fld_map || !is_array($fld_map)) {
-            return 'Aucun mapping fourni';
-        }
-
-        foreach ($fld_map as $xml_field) {
-            ++$i;
-            if (!Tools::getIsset('sel_' . $i)) {
-                continue;
-            }
-
-            $system_field = Tools::getValue('sel_' . $i);
-
-            // Ajouter les mappings fixes
-            self::insertFixedFieldMappingsIfMissing();
-
-            if ($system_field !== 'Ignore Field' && !empty($xml_field)) {
-                $qry = 'INSERT INTO `' . _DB_PREFIX_ . 'pfi_import_feed_fields_csv` 
-                    (`xml_field`, `system_field`, `feed_id`) 
-                    VALUES ("' . pSQL($xml_field) . '", "' . pSQL($system_field) . '", 1)
-                    ON DUPLICATE KEY UPDATE xml_field = VALUES(xml_field)';
-                Db::getInstance()->execute($qry);
-            }
-        }
-
-        return 'Mappings sauvegardés';
-    }
-
-    public static function insertFixedFieldMappingsIfMissing()
-    {
-        $requiredMappings = [
-            'reference' => 'codeArt',
-            'name' => 'des',
-            'id_category_default' => 'fam',
-            'wholesale_price' => 'paHT',
-            'id_tax_rules_group' => 'tTVA',
-            'price' => 'pvTTC',
-            'weight' => 'poids',
-            'taille_1' => 'taille',
-            'couleur_2' => 'couleur',
-            'quantity' => 'stock',
-            'ecotax' => 'deee',
-            'available_date' => 'dArr',
-            'condition' => 'neuf',
-            'product_url' => 'link',
-            'manufacturer' => 'four',
-            'image_url' => 'images',
-            'combination_reference' => 'codeDeclinaison',
+        // Mappings par défaut
+        $defaultMappings = [
+            'codeArt' => 'reference',
+            'des' => 'name',
+            'fam' => 'id_category_default',
+            'paHT' => 'wholesale_price',
+            'tTVA' => 'id_tax_rules_group',
+            'pvTTC' => 'price',
+            'poids' => 'weight',
+            'taille' => 'taille_1',
+            'couleur' => 'couleur_2',
+            'stock' => 'quantity',
+            'deee' => 'ecotax',
+            'dArr' => 'available_date',
+            'neuf' => 'condition',
+            'link' => 'product_url',
+            'four' => 'manufacturer',
+            'images' => 'image_url',
+            'codeDeclinaison' => 'combination_reference',
             'description' => 'description',
         ];
 
-        // Récupérer toutes les lignes existantes pour le feed_id = 1
-        $existingRows = Db::getInstance()->executeS(
-            'SELECT system_field, xml_field FROM `' . _DB_PREFIX_ . 'pfi_import_feed_fields_csv` WHERE feed_id = 1'
-        );
-
-        // Créer un tableau des paires existantes
-        $existingPairs = [];
-        foreach ($existingRows as $row) {
-            $existingPairs[$row['system_field'] . '|' . $row['xml_field']] = true;
-        }
-
-        // Insérer uniquement les paires manquantes
-        foreach ($requiredMappings as $system_field => $xml_field) {
-            $key = $system_field . '|' . $xml_field;
-            if (!isset($existingPairs[$key])) {
-                Db::getInstance()->execute('INSERT INTO `' . _DB_PREFIX_ . 'pfi_import_feed_fields_csv`
-                (`xml_field`, `system_field`, `feed_id`) VALUES ("' . pSQL($xml_field) . '", "' . pSQL($system_field) . '", 1)');
+        // ÉTAPE 1 : Traiter le formulaire 
+        $fld_map = Tools::getValue('fld_map');
+        if ($fld_map && is_array($fld_map)) {
+            $i = 0;
+            foreach ($fld_map as $xml_field) {
+                ++$i;
+                if (Tools::getIsset('sel_' . $i)) {
+                    $system_field = Tools::getValue('sel_' . $i);
+                    if ($system_field !== 'Ignore Field' && !empty($xml_field) && !empty($system_field)) {
+                        $allMappings[$xml_field] = $system_field;
+                    }
+                }
             }
         }
+
+        // ÉTAPE 2 : Ajouter les mappings par défaut SEULEMENT si pas dans le formulaire
+        foreach ($defaultMappings as $xml_field => $system_field) {
+            if (!isset($allMappings[$xml_field])) {
+                $allMappings[$xml_field] = $system_field;
+            }
+        }
+
+        // ÉTAPE 3 : ORDRE POUR L'IMPORT
+        $ordreImport = [
+            'codeArt',
+            'des',
+            'fam',
+            'paHT',
+            'tTVA',
+            'pvTTC',
+            'poids',
+            'taille',
+            'couleur',
+            'stock',
+            'deee',
+            'dArr',
+            'neuf',
+            'link',
+            'four',
+            'images',
+            'codeDeclinaison',
+            'description',
+        ];
+
+        // ÉTAPE 4 : Insérer dans l'ordre requis
+        if (!empty($allMappings)) {
+            $valuesToInsert = [];
+
+            // D'abord, insérer les champs dans l'ordre spécifié
+            foreach ($ordreImport as $xml_field) {
+                if (isset($allMappings[$xml_field])) {
+                    $system_field = $allMappings[$xml_field];
+                    $valuesToInsert[] = '("' . pSQL($xml_field) . '", "' . pSQL($system_field) . '", 1)';
+                    unset($allMappings[$xml_field]); // Éviter les doublons
+                }
+            }
+
+            // Ensuite, ajouter les champs restants
+            foreach ($allMappings as $xml_field => $system_field) {
+                $valuesToInsert[] = '("' . pSQL($xml_field) . '", "' . pSQL($system_field) . '", 1)';
+            }
+
+            $sql = 'INSERT INTO `' . _DB_PREFIX_ . 'pfi_import_feed_fields_csv`
+            (`xml_field`, `system_field`, `feed_id`) VALUES ' . implode(', ', $valuesToInsert);
+
+            // Log the SQL query for debugging purposes
+            error_log($sql);
+
+            Db::getInstance()->execute($sql);
+        }
+
+        return 'Mappings sauvegardés (' . count($ordreImport) . ' mappings) dans l\'ordre d\'import';
     }
+
 
     /**
      * buildMappingFieldsForm function.
@@ -540,8 +565,6 @@ class Vccsv
                 $attrgrp[$attr['id_attribute_group']] = $attr['name'];
             }
         }
-
-        self::insertFixedFieldMappingsIfMissing();
 
         $_this->smarty->assign([
             // 'vc_redirect' => $vc_redirect,
