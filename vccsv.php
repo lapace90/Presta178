@@ -355,7 +355,7 @@ class Vccsv
     public static function saveFieldMappings($_this)
     {
         // Vider la table d'abord
-        $qry = 'DELETE FROM `' . _DB_PREFIX_ . 'pfi_import_feed_fields_csv` WHERE feed_id = 1';
+        $qry = 'TRUNCATE TABLE `' . _DB_PREFIX_ . 'pfi_import_feed_fields_csv`';
         Db::getInstance()->execute($qry);
 
         $allMappings = [];
@@ -365,7 +365,7 @@ class Vccsv
             'codeArt' => 'reference',
             'des' => 'name',
             'fam' => 'id_category_default',
-            'paHT' => 'wholesale_price',
+            'pRachat' => 'wholesale_price',
             'tTVA' => 'id_tax_rules_group',
             'pvTTC' => 'price',
             'poids' => 'weight',
@@ -375,7 +375,6 @@ class Vccsv
             'deee' => 'ecotax',
             'dArr' => 'available_date',
             'neuf' => 'condition',
-            'link' => 'product_url',
             'four' => 'manufacturer',
             'images' => 'image_url',
             'codeDeclinaison' => 'combination_reference',
@@ -409,17 +408,16 @@ class Vccsv
             'codeArt',
             'des',
             'fam',
-            'paHT',
             'tTVA',
             'pvTTC',
             'poids',
             'taille',
             'couleur',
-            'stock',
             'deee',
             'dArr',
+            'pRachat',
             'neuf',
-            'link',
+            'stock',
             'four',
             'images',
             'codeDeclinaison',
