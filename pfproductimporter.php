@@ -186,7 +186,7 @@ class PfProductImporter extends Module
             // 4. Save Category Mapping
             Vccsv::createCategoryMappings();
             $output = Vccsv::saveCategoryMappings($this);
-
+            $output .= $this->renderMainSettingsForm();
             return $output;
         } elseif (Tools::isSubmit('Submitimportprocess')) {
             // 5. Import CSV catalog
@@ -327,7 +327,7 @@ class PfProductImporter extends Module
             if ($this->isPrestashop16()) {
                 $output .= CombinationVccsv::syncCombination(
                     $id_product,
-                    Tools::getValue('attribute_' . $reference_field),
+                    Tools::getValue('attribute_' . $reference_field), // vérifier ici
                     Tools::getValue('attribute_ean13'),
                     Tools::getValue('attribute_wholesale_price'),
                     Tools::getValue('attribute_price_impact'),
@@ -1326,13 +1326,13 @@ class PfProductImporter extends Module
 
                 // Si le produit de base a la valeur taille ou couleur renseignée,
                 // il faut créer une déclinaison (la principale)
-                // if ((!empty($attributes['taille']['value'])) || (!empty($attributes['couleur']['value']))) {
-                //     $tmp_feedproduct = $feedproduct;
-                //     $tmp_feedproduct[$tabledata['combination_reference']] =
-                //         $feedproduct[$tabledata[Configuration::get('PI_PRODUCT_REFERENCE')]];
-                //     $combinations[] = $tmp_feedproduct;
-                //     $has_combination_base = $feedproduct[$tabledata[Configuration::get('PI_PRODUCT_REFERENCE')]];
-                // }
+                if ((!empty($attributes['taille']['value'])) || (!empty($attributes['couleur']['value']))) {
+                    $tmp_feedproduct = $feedproduct;
+                    $tmp_feedproduct[$tabledata['combination_reference']] =
+                        $feedproduct[$tabledata[Configuration::get('PI_PRODUCT_REFERENCE')]];
+                    $combinations[] = $tmp_feedproduct;
+                    $has_combination_base = $feedproduct[$tabledata[Configuration::get('PI_PRODUCT_REFERENCE')]];
+                }
 
                 /**
                  * @edit Definima
@@ -1494,32 +1494,26 @@ class PfProductImporter extends Module
                     $amount_tax = 20;
                 }
 
-                // DEBUG PRIX - Version simplifiée
                 if (isset($tabledata['price'], $feedproduct[$tabledata['price']])) {
                     $prix_brut = $feedproduct[$tabledata['price']];
-                    // echo "<br>🔍 DEBUG PRIX pour $reference:<br>";
-                    // echo "- Prix brut reçu: '$prix_brut'<br>";
 
-                    // Nettoyage basique
+                    // Récupérer l'ecotax pour la déduire du prix TTC
+                    $ecotax_amount = 0;
+                    if (isset($tabledata['ecotax'], $feedproduct[$tabledata['ecotax']])) {
+                        $ecotax_amount = (float) str_replace([',', '#', 'R', ' '], ['.', '.', '', ''], $feedproduct[$tabledata['ecotax']]);
+                    }
+
                     $prix_clean = str_replace([',', '#', 'R', ' '], ['.', '.', '', ''], $prix_brut);
                     $prix_clean = (float) $prix_clean;
-                    // echo "- Prix nettoyé: $prix_clean<br>";
 
                     if ($prix_clean > 0) {
-                        // Convertir TTC vers HT (avec TVA de 20%)
-                        $prix_ht = $prix_clean / 1.20;
+                        $prix_ttc_sans_ecotax = $prix_clean - $ecotax_amount;
+                        $prix_ht = $prix_ttc_sans_ecotax / 1.20;
                         $product->price = number_format($prix_ht, 6, '.', '');
-                        // echo "- Prix HT calculé: {$product->price}<br>";
-                        // echo "- Prix qui sera sauvé: {$product->price}<br>";
                     } else {
                         $product->price = 0.000000;
-                        // echo "- Prix mis à 0 (prix invalide)<br>";
                     }
-                } else {
-                    $product->price = 0.000000;
-                    // echo "<br>❌ Prix non trouvé pour $reference<br>";
                 }
-                // echo "========================================<br>";
 
                 if (isset($tabledata['quantity'])) {
                     if (isset($feedproduct[$tabledata['quantity']])) {
@@ -1672,26 +1666,29 @@ class PfProductImporter extends Module
                     $reference_field = Configuration::get('PI_PRODUCT_REFERENCE');
                     $temp_p_array[] = $product->id;
                     $temp_p_array2[] = $product->$reference_field;
-                    // Product supplier
-                    $product->supplier_reference = '';
-                    if (isset($product->id_supplier, $product->supplier_reference)) {
-                        $id_product_supplier = ProductSupplier::getIdByProductAndSupplier(
-                            (int) $product->id,
-                            0,
-                            (int) $product->id_supplier
-                        );
-                        if ($id_product_supplier) {
-                            $product_supplier = new ProductSupplier((int) $id_product_supplier);
-                        } else {
-                            $product_supplier = new ProductSupplier();
-                        }
-                        $product_supplier->id_product = $product->id;
-                        $product_supplier->id_product_attribute = 0;
-                        $product_supplier->id_supplier = $product->id_supplier;
-                        $product_supplier->product_supplier_price_te = $product->wholesale_price;
-                        $product_supplier->product_supplier_reference = $product->supplier_reference;
-                        $product_supplier->save();
-                    }
+                    // Product supplier 
+
+                    // Vérifier si on garde cette partie ou pas
+
+                    // $product->supplier_reference = '';
+                    // if (isset($product->id_supplier, $product->supplier_reference)) {
+                    //     $id_product_supplier = ProductSupplier::getIdByProductAndSupplier(
+                    //         (int) $product->id,
+                    //         0,
+                    //         (int) $product->id_supplier
+                    //     );
+                    //     if ($id_product_supplier) {
+                    //         $product_supplier = new ProductSupplier((int) $id_product_supplier);
+                    //     } else {
+                    //         $product_supplier = new ProductSupplier();
+                    //     }
+                    //     $product_supplier->id_product = $product->id;
+                    //     $product_supplier->id_product_attribute = 0;
+                    //     $product_supplier->id_supplier = $product->id_supplier;
+                    //     $product_supplier->product_supplier_price_te = $product->wholesale_price;
+                    //     $product_supplier->product_supplier_reference = $product->supplier_reference;
+                    //     $product_supplier->save();
+                    // }
                 }
                 if (isset($product->id_category)) {
                     $product->updateCategories(array_map('intval', $product->id_category));
@@ -1789,7 +1786,7 @@ class PfProductImporter extends Module
                 // Boucle sur les déclinaisons
                 foreach ($combinations as $feedproduct) {
                     try {
-                        $reference = $feedproduct[$tabledata[Configuration::get('PI_PRODUCT_REFERENCE')]];
+                        $reference = $feedproduct[$tabledata[Configuration::get('PI_PRODUCT_REFERENCE')]]; // 
                         $product_reference = $feedproduct[$tabledata['combination_reference']];
                         $pname = $feedproduct[$tabledata['name']];
 
@@ -1950,7 +1947,25 @@ class PfProductImporter extends Module
                             $weight = $weight - $product->weight;
 
                             // Récupère la déclinaison si elle existe
-                            $id_product_attribute = Combination::getIdByReference($product->id, $reference);
+                            if (Configuration::get('PI_PRODUCT_REFERENCE') == 'reference') {
+                                $reference_for_combination = $feedproduct[$tabledata['reference']];
+                                $id_product_attribute = Combination::getIdByReference($product->id, $reference_for_combination);
+                            } elseif (Configuration::get('PI_PRODUCT_REFERENCE') == 'ean13') {
+                                $reference_for_combination = ''; // Pas de référence auto pour les déclinaisons en mode EAN13
+
+                                // Chercher la déclinaison existante par EAN13
+                                $id_product_attribute = 0;
+                                $ean13_value = isset($feedproduct[$tabledata['ean13']]) ? $feedproduct[$tabledata['ean13']] : '';
+                                if ($ean13_value) {
+                                    $existing_combinations = $product->getAttributeCombinations($default_language_id);
+                                    foreach ($existing_combinations as $existing_combination) {
+                                        if ($existing_combination['ean13'] == $ean13_value) {
+                                            $id_product_attribute = $existing_combination['id_product_attribute'];
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
 
                             // La déclinaison n'existe pas, on crée l'entité
                             if (!$id_product_attribute) {
@@ -1962,7 +1977,7 @@ class PfProductImporter extends Module
                                     Configuration::get('PS_USE_ECOTAX') ? (float) $ecotax : 0, // ecotax
                                     $feedproduct[$tabledata['quantity']], // quantity
                                     [], // id_images
-                                    $reference, // reference
+                                    $reference_for_combination, // reference
                                     0, // id_supplier
                                     isset($tabledata['ean13']) && isset($feedproduct[$tabledata['ean13']])
                                         ? $feedproduct[$tabledata['ean13']]
@@ -2014,7 +2029,7 @@ class PfProductImporter extends Module
                                             0, // unit_impact
                                             Configuration::get('PS_USE_ECOTAX') ? (float) $ecotax : 0, // ecotax
                                             [], // id_images
-                                            $reference, // reference
+                                            $reference_for_combination, // reference
                                             isset($tabledata['ean13']) && isset($feedproduct[$tabledata['ean13']])
                                                 ? $feedproduct[$tabledata['ean13']]
                                                 : '', // ean13

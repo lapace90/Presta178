@@ -446,7 +446,7 @@ class Vccsv
             (`xml_field`, `system_field`, `feed_id`) VALUES ' . implode(', ', $valuesToInsert);
 
             // Log the SQL query for debugging purposes
-            error_log($sql);
+            // error_log($sql);
 
             Db::getInstance()->execute($sql);
         }

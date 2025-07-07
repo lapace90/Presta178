@@ -202,7 +202,7 @@
     .semi-titre {
         font-weight: bold !important;
         font-size: 1.2rem !important;
-        padding: 1.6rem;
+        padding: 1.4rem;
         color: #959595 !important;
     }
 </style>
