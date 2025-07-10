@@ -1,4 +1,5 @@
 <?php
+
 /**
  * 2018 - Definima
  *
@@ -30,8 +31,10 @@ class CombinationVccsv extends Vccsv
         $attributes = ['taille' => [], 'couleur' => []];
 
         foreach ($tabledata as $system_field => $colname) {
-            if (Tools::substr($system_field, 0, Tools::strlen('taille_')) === 'taille_'
-                || Tools::substr($system_field, 0, Tools::strlen('couleur_')) === 'couleur_') {
+            if (
+                Tools::substr($system_field, 0, Tools::strlen('taille_')) === 'taille_'
+                || Tools::substr($system_field, 0, Tools::strlen('couleur_')) === 'couleur_'
+            ) {
                 $tmp = explode('_', $system_field);
 
                 $attributes[$tmp[0]] = [
@@ -246,31 +249,32 @@ WHERE pac.id_product_attribute=' . (int) $id_product_attribute . '
             if (empty($wholesale_price) || ($wholesale_price == '0,000000')) {
                 $wholesale_price = $Product->wholesale_price;
             }
-            // Famille
+            //Extraction de la hiérarchie complète : rayon > fam > sFam
+            $rayon = null;
+            $fam = null;
+            $sfam = null;
+
             if ($allow_categoryexport == 1) {
                 $id_category_default = $Product->id_category_default;
-                $categorys = new Category($id_category_default, $id_lang);
-                $fam = Tools::replaceAccentedChars($categorys->name);
-                $fam = Tools::substr(trim(preg_replace('/[^0-9A-Za-z :\.\(\)\?!\+&\,@_-]/i', ' ', $fam)), 0, 49);
-            } else {
-                $fam = null;
-            }
-            // Sous-famille
-            if ($allow_categoryexport == 1) {
+                // Récupération du chemin complet de la catégorie
                 if (version_compare(_PS_VERSION_, '1.6', '>') === true) {
-                    $sfam = Tools::getPath('', $id_category_default);
+                    $full_path = Tools::getPath('', $id_category_default);
                 } else {
-                    $sfam = Tools::getPath($id_category_default);
+                    $full_path = Tools::getPath($id_category_default);
                 }
-                if (!empty($sfam)) {
-                    $sfam = Tools::replaceAccentedChars(strip_tags($sfam));
-                    $sfam = preg_replace('/[^0-9A-Za-z :\.\(\)\?!\+&\,@_-]/i', ' ', $sfam);
-                    $sfam = Tools::substr(trim(preg_replace('/\s{2,}/', ' ', $sfam)), 0, 49);
-                } else {
-                    $sfam = '';
+                if (!empty($full_path)) {
+                    // Nettoyage du chemin (suppression des balises HTML)
+                    $clean_path = Tools::replaceAccentedChars(strip_tags($full_path));
+                    $clean_path = preg_replace('/[^0-9A-Za-z :\.\(\)\?!\+&\,@_>-]/i', ' ', $clean_path);
+                    $clean_path = trim(preg_replace('/\s{2,}/', ' ', $clean_path));
+                    // Séparation des niveaux de hiérarchie (utilise " > " comme séparateur)
+                    $hierarchy_levels = array_map('trim', explode('>', $clean_path));
+                    // $output .= print_r($hierarchy_levels, true) . '\n';
+
+                    if (isset($hierarchy_levels[0])) $rayon = $hierarchy_levels[0];
+                    if (isset($hierarchy_levels[1])) $fam = $hierarchy_levels[1];
+                    if (isset($hierarchy_levels[2])) $sfam = $hierarchy_levels[2];
                 }
-            } else {
-                $sfam = null;
             }
             $tax = Tax::getProductTaxRate((int) $id_product);
 
@@ -310,12 +314,16 @@ WHERE pac.id_product_attribute=' . (int) $id_product_attribute . '
                 foreach ($list_all_attributes as $a) {
                     $associations[$a['id_attribute']] = $a['name'];
                     if (isset($a['id_attribute_group']) && in_array($a['id_attribute'], $combination_list)) {
-                        if (isset($attributes['taille']['id_attribute_group'])
-                            && ($a['id_attribute_group'] == $attributes['taille']['id_attribute_group'])) {
+                        if (
+                            isset($attributes['taille']['id_attribute_group'])
+                            && ($a['id_attribute_group'] == $attributes['taille']['id_attribute_group'])
+                        ) {
                             $taille = $a['name'];
                         }
-                        if (isset($attributes['couleur']['id_attribute_group'])
-                            && ($a['id_attribute_group'] == $attributes['couleur']['id_attribute_group'])) {
+                        if (
+                            isset($attributes['couleur']['id_attribute_group'])
+                            && ($a['id_attribute_group'] == $attributes['couleur']['id_attribute_group'])
+                        ) {
                             $couleur = $a['name'];
                         }
                     }
@@ -341,7 +349,7 @@ WHERE pac.id_product_attribute=' . (int) $id_product_attribute . '
                     $softwareid,
                     $reference_combination,
                     $name,
-                    null,
+                    $rayon, //  <-- J'ai ajouté $rayon
                     $fam,
                     $sfam,
                     $wholesale_price,
@@ -371,7 +379,7 @@ WHERE pac.id_product_attribute=' . (int) $id_product_attribute . '
                     $softwareid,
                     $reference_combination,
                     $name,
-                    '',
+                    $rayon,
                     $fam,
                     $sfam,
                     $wholesale_price,
@@ -411,6 +419,7 @@ WHERE pac.id_product_attribute=' . (int) $id_product_attribute . '
         return $output;
     }
 
+
     /**
      * Synchronisation des déclinaisons PS -> Rezomatic
      *
@@ -427,7 +436,6 @@ WHERE pac.id_product_attribute=' . (int) $id_product_attribute . '
         $allow_categoryexport = Configuration::get('PI_ALLOW_CATEGORYEXPORT');
         $softwareid = Configuration::get('PI_SOFTWAREID');
         $output = '';
-        // $output .= "combinationSync($id_product_attribute)\n";
 
         if ($allow_productexport == 1) {
             $feedurl = Configuration::get('SYNC_CSV_FEEDURL');
@@ -445,31 +453,33 @@ WHERE pac.id_product_attribute=' . (int) $id_product_attribute . '
                 } else {
                     $wholesale_price = $Product->wholesale_price;
                 }
-                // Famille
+
+                //Extraction de la hiérarchie complète : rayon > fam > sFam
+                $rayon = null;
+                $fam = null;
+                $sfam = null;
+
                 if ($allow_categoryexport == 1) {
                     $id_category_default = $Product->id_category_default;
-                    $categorys = new Category($id_category_default, $id_lang);
-                    $fam = Tools::replaceAccentedChars($categorys->name);
-                    $fam = Tools::substr(trim(preg_replace('/[^0-9A-Za-z :\.\(\)\?!\+&\,@_-]/i', ' ', $fam)), 0, 49);
-                } else {
-                    $fam = null;
-                }
-                // Sous-famille
-                if ($allow_categoryexport == 1) {
+                    // Récupération du chemin complet de la catégorie
                     if (version_compare(_PS_VERSION_, '1.6', '>') === true) {
-                        $sfam = Tools::getPath('', $id_category_default);
+                        $full_path = Tools::getPath('', $id_category_default);
                     } else {
-                        $sfam = Tools::getPath($id_category_default);
+                        $full_path = Tools::getPath($id_category_default);
                     }
-                    if (!empty($sfam)) {
-                        $sfam = Tools::replaceAccentedChars(strip_tags($sfam));
-                        $sfam = trim(preg_replace('/[^0-9A-Za-z :\.\(\)\?!\+&\,@_-]/i', ' ', $sfam));
-                        $sfam = Tools::substr(preg_replace('/\s{2,}/', ' ', $sfam), 0, 49);
-                    } else {
-                        $sfam = '';
+                    if (!empty($full_path)) {
+                        // Nettoyage du chemin 
+                        $clean_path = Tools::replaceAccentedChars(strip_tags($full_path));
+                        $clean_path = preg_replace('/[^0-9A-Za-z :\.\(\)\?!\+&\,@_>-]/i', ' ', $clean_path);
+                        $clean_path = trim(preg_replace('/\s{2,}/', ' ', $clean_path));
+                        // Séparation des niveaux de hiérarchie (utilise " > " comme séparateur)
+                        $hierarchy_levels = array_map('trim', explode('>', $clean_path));
+                        $output .= print_r($hierarchy_levels, true) . '\n';
+
+                        if (isset($hierarchy_levels[0])) $rayon = $hierarchy_levels[0];
+                        if (isset($hierarchy_levels[1])) $fam = $hierarchy_levels[1];
+                        if (isset($hierarchy_levels[2])) $sfam = $hierarchy_levels[2];
                     }
-                } else {
-                    $sfam = null;
                 }
                 // Fournisseur
                 if (!empty($Product->id_supplier)) {
@@ -502,7 +512,7 @@ WHERE pac.id_product_attribute=' . (int) $id_product_attribute . '
                     $condition = 0;
                 }
 
-                $final_price = number_format(($Combination->price + $Product->price) * (1 + ($tax / 100)) + $Combination->ecotax, 6, '.', '');
+                $final_price = number_format(($Combination->price + $Product->price) * (1 + ($tax / 100)) + $Product->ecotax, 6, '.', '');
                 $final_weight = $Combination->weight + $Product->weight;
 
                 $taille = '';
@@ -559,7 +569,7 @@ WHERE pac.id_product_attribute=' . (int) $id_product_attribute . '
                         $softwareid,
                         $reference_combination,
                         $name,
-                        null,
+                        $rayon,
                         $fam,
                         $sfam,
                         $wholesale_price,
@@ -589,7 +599,7 @@ WHERE pac.id_product_attribute=' . (int) $id_product_attribute . '
                         $softwareid,
                         $reference_combination,
                         $name,
-                        '',
+                        $rayon,
                         $fam,
                         $sfam,
                         $wholesale_price,

@@ -157,9 +157,9 @@
 
 <hr>
 
-<!-- Activer l'import des ventes -->
+<!-- Activer l'import des soldes -->
 <div class="form-group">
-    <label class="control-label col-lg-3">Activer l'import des ventes</label>
+    <label class="control-label col-lg-3">Activer l'import des soldes</label>
     <div class="col-lg-8">
         <span class="switch prestashop-switch fixed-width-lg">
             <input type="radio" name="PI_ALLOW_PRODUCTSALESIMPORT" id="PI_ALLOW_PRODUCTSALESIMPORT_on" value="1"
@@ -170,16 +170,16 @@
             <label for="PI_ALLOW_PRODUCTSALESIMPORT_off">Non</label>
             <a class="slide-button btn"></a>
         </span>
-        <p class="help-block">Importer les ventes de Rezomatic vers PrestaShop par produit</p>
+        <p class="help-block">Importer les soldes de Rezomatic vers PrestaShop par produit</p>
     </div>
 </div>
 
-<!-- Synchroniser les ventes depuis -->
+<!-- Synchroniser les soldes depuis -->
 <div class="form-group">
-    <label class="control-label col-lg-3">Synchroniser les ventes depuis</label>
+    <label class="control-label col-lg-3">Synchroniser les soldes depuis</label>
     <div class="col-lg-6">
         <input type="text" name="SYNC_STOCK_PDV" value="{$fields_value.SYNC_STOCK_PDV}" />
-        <p class="help-block">Laisser vide pour les ventes globales.</p>
+        <p class="help-block">Laisser vide pour les soldes globaux.</p>
     </div>
 </div>
 

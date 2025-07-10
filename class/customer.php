@@ -21,7 +21,7 @@ class CustomerVccsv extends Vccsv
 {
 
     /**
-     * @var string
+     * @var array Statistiques du dernier import pour le cron
      */
     public static $last_import_stats = ['processed' => 0, 'created' => 0, 'updated' => 0, 'errors' => 0];
 
@@ -204,6 +204,110 @@ class CustomerVccsv extends Vccsv
     }
 
     /**
+     * Recherche fiable d'un client par email (anti-doublons)
+     * 
+     * @param string $email
+     * @return int|false ID du client ou false si non trouvé
+     */
+    private static function getCustomerIdByEmail($email)
+    {
+        if (!Validate::isEmail($email)) {
+            return false;
+        }
+        
+        // Utilisation de la méthode native PrestaShop (plus fiable)
+        $customer_id = Customer::customerExists($email, true, false);
+        
+        return $customer_id ? (int)$customer_id : false;
+    }
+
+    /**
+     * Met à jour un client existant avec vérifications
+     * 
+     * @param int $customer_id
+     * @param array $customerData
+     * @return bool
+     */
+    private static function updateExistingCustomer($customer_id, $customerData)
+    {
+        try {
+            $customer = new Customer($customer_id);
+            
+            // Mise à jour seulement si les nouvelles valeurs sont valides
+            if (!empty($customerData['firstname']) && !is_numeric($customerData['firstname'])) {
+                $customer->firstname = $customerData['firstname'];
+            }
+            if (!empty($customerData['lastname']) && !is_numeric($customerData['lastname'])) {
+                $customer->lastname = $customerData['lastname'];
+            }
+            if (!empty($customerData['birthday']) && $customerData['birthday'] !== '1970-01-01') {
+                $customer->birthday = $customerData['birthday'];
+            }
+            if (isset($customerData['gender'])) {
+                $customer->id_gender = $customerData['gender'];
+            }
+            if (isset($customerData['newsletter'])) {
+                $customer->newsletter = $customerData['newsletter'];
+            }
+            
+            return $customer->update();
+            
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+
+    /**
+     * Met à jour l'adresse principale d'un client
+     * 
+     * @param int $customer_id
+     * @param array $addressData
+     * @return bool
+     */
+    private static function updateCustomerAddress($customer_id, $addressData)
+    {
+        try {
+            $id_address = Address::getFirstCustomerAddressId($customer_id);
+            if (!$id_address) {
+                return false;
+            }
+            
+            $address = new Address($id_address);
+            
+            // Mise à jour seulement si les nouvelles valeurs sont valides
+            if (!empty($addressData['firstname']) && !is_numeric($addressData['firstname'])) {
+                $address->firstname = $addressData['firstname'];
+            }
+            if (!empty($addressData['lastname']) && !is_numeric($addressData['lastname'])) {
+                $address->lastname = $addressData['lastname'];
+            }
+            if (!empty($addressData['address1'])) {
+                $address->address1 = $addressData['address1'];
+            }
+            if (!empty($addressData['address2'])) {
+                $address->address2 = $addressData['address2'];
+            }
+            if (!empty($addressData['postcode'])) {
+                $address->postcode = $addressData['postcode'];
+            }
+            if (!empty($addressData['city'])) {
+                $address->city = $addressData['city'];
+            }
+            if (!empty($addressData['phone'])) {
+                $address->phone = str_replace(' ', '', $addressData['phone']);
+            }
+            if (!empty($addressData['id_country'])) {
+                $address->id_country = $addressData['id_country'];
+            }
+            
+            return $address->update();
+            
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+
+    /**
      * registerDiscountRezomatic function.
      *
      * @static
@@ -304,7 +408,7 @@ class CustomerVccsv extends Vccsv
 
     /**
      * importCustomer function.
-     * VERSION MODIFIÉE : Import basé sur l'email + compatible avec la tâche cron existante
+     * VERSION AMÉLIORÉE : Anti-doublons + statistiques pour le cron
      *
      * @static
      *
@@ -319,40 +423,37 @@ class CustomerVccsv extends Vccsv
         $softwareid = Configuration::get('PI_SOFTWAREID');
         $timestamp = Configuration::get('PI_LAST_CRON');
 
+        // Réinitialisation des statistiques
         $clients_processed = 0;
         $clients_created = 0;
         $clients_updated = 0;
         $clients_errors = 0;
 
-
-        // Log de début
-        $output .= "=== CUSTOMER IMPORT STARTED (Email-based) ===\n";
-        $output .= "Timestamp: " . $timestamp . "\n";
-
         if ($allow_customerimport == 1) {
             try {
                 $sc = new SoapClient($feedurl, ['keep_alive' => false]);
                 $art = $sc->getNewClients($softwareid, $timestamp);
-                $i = 0;
-
+                
                 if (empty($art->client)) {
                     $clientsrezo = [];
-                    $output .= "No new clients found since last cron\n";
                 } elseif (is_array($art->client)) {
                     $clientsrezo = $art->client;
                 } else {
                     $clientsrezo = [$art->client];
                 }
 
-                $clients_created = 0;
-                $clients_updated = 0;
-                $clients_errors = 0;
-
                 foreach ($clientsrezo as $item) {
                     $clients_processed++;
-                    ++$i;
                     $default_language_id = (int) Configuration::get('PS_LANG_DEFAULT');
                     $customerlist = (array) $item;
+
+                    // Validation email première étape (anti-doublons)
+                    $email = trim($customerlist['mail']);
+                    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                        $output .= parent::l('Invalid email') . ' : ' . $email . "\n";
+                        $clients_errors++;
+                        continue;
+                    }
 
                     // Traitement du genre
                     $gender = Tools::strtolower($customerlist['etCiv']);
@@ -377,185 +478,160 @@ class CustomerVccsv extends Vccsv
                     $arrcust = explode(' ', $customerlist['noPrn']);
                     $lastname = preg_replace('/[^A-Za-z ]/i', ' ', array_shift($arrcust));
                     $firstname = preg_replace('/[^A-Za-z ]/i', ' ', implode(' ', $arrcust));
-                    $email = $customerlist['mail'];
                     $phone = (empty($customerlist['tel'])) ? '0000000000' : $customerlist['tel'];
                     $ann = (empty($customerlist['ann'])) ? '1970-01-01' : $customerlist['ann'];
                     $api_customerid = $customerlist['num'];
                     $newsletter = $customerlist['acceptCommCommerciale'];
 
-                    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-                        $output .= parent::l('Email incorrect') . ' : ' . $email . "\n";
-                        $clients_errors++;
-                        continue;
-                    }
-
-                    // Recherche d'abord par email
-                    $customer_id = null;
-                    $existing_customer = null;
-
-                    // 1. Chercher d'abord un client existant par email dans PrestaShop
-                    $existing_customer_id = Customer::customerExists($email, true, false);
-
+                    // STRATÉGIE ANTI-DOUBLONS : Recherche par email d'abord
+                    $existing_customer_id = self::getCustomerIdByEmail($email);
+                    
                     if ($existing_customer_id) {
-                        // Client trouvé par email
+                        // Client existant trouvé par email - Mise à jour
                         $customer_id = $existing_customer_id;
-                        $existing_customer = new Customer($customer_id);
-                        $output .= 'Customer found by email: ' . $email . ' (ID: ' . $customer_id . ')' . "\n";
-
-                        // Vérifier/créer/mettre à jour la liaison API
-                        $existing_api_link = Db::getInstance()->getValue(
-                            'SELECT api_customerid FROM ' . _DB_PREFIX_ .
-                                'pfi_customer_apisync WHERE system_customerid = ' . (int) $customer_id
-                        );
-
-                        if (!$existing_api_link) {
-                            // Créer la liaison
-                            $array_data = [
-                                'system_customerid' => (int) $customer_id,
-                                'api_customerid' => (int) $api_customerid,
-                            ];
-                            Db::getInstance()->insert('pfi_customer_apisync', $array_data, false, false, Db::ON_DUPLICATE_KEY, true);
-                            $output .= 'API link created for existing customer: ' . $customer_id . "\n";
-                        } elseif ($existing_api_link != $api_customerid) {
-                            // Mettre à jour la liaison
-                            Db::getInstance()->update(
-                                'pfi_customer_apisync',
-                                ['api_customerid' => (int) $api_customerid],
-                                'system_customerid = ' . (int) $customer_id
-                            );
-                            $output .= 'API link updated for existing customer: ' . $customer_id . "\n";
+                        
+                        // Mettre à jour le client
+                        $update_success = self::updateExistingCustomer($customer_id, [
+                            'firstname' => $firstname,
+                            'lastname' => $lastname,
+                            'birthday' => $ann,
+                            'gender' => $gender,
+                            'newsletter' => $newsletter
+                        ]);
+                        
+                        if ($update_success) {
+                            $clients_updated++;
+                            $output .= 'Customer updated: ' . $email . ' (ID: ' . $customer_id . ')' . "\n";
+                            
+                            // Mettre à jour l'adresse
+                            self::updateCustomerAddress($customer_id, [
+                                'firstname' => $firstname,
+                                'lastname' => $lastname,
+                                'address1' => $customerlist['add1'],
+                                'address2' => $customerlist['add2'],
+                                'postcode' => $customerlist['cp'],
+                                'city' => $customerlist['ville'],
+                                'phone' => $phone,
+                                'id_country' => Country::getByIso(empty($customerlist['codePays']) ?
+                                    Configuration::get('PS_LOCALE_COUNTRY') : $customerlist['codePays'])
+                            ]);
+                        } else {
+                            $clients_errors++;
+                            $output .= 'Error updating customer: ' . $email . "\n";
                         }
+                        
+                        // Créer/mettre à jour la liaison API
+                        $array_data = [
+                            'system_customerid' => (int) $customer_id,
+                            'api_customerid' => (int) $api_customerid,
+                        ];
+                        Db::getInstance()->insert('pfi_customer_apisync', $array_data, false, false, Db::ON_DUPLICATE_KEY, true);
+                        
                     } else {
-                        // 2. Si pas trouvé par email, chercher par api_customerid (fallback)
-                        $customer_id = Db::getInstance()->getValue(
+                        // Pas de client existant par email - Vérification par API (fallback)
+                        $sync_customer_id = Db::getInstance()->getValue(
                             'SELECT system_customerid FROM ' . _DB_PREFIX_ .
                                 'pfi_customer_apisync WHERE api_customerid = ' . (int) $api_customerid .
                                 ' ORDER BY system_customerid DESC'
                         );
-
-                        if ($customer_id) {
-                            $found = Customer::customerIdExistsStatic($customer_id);
-                            if (!$found) {
-                                $customer_id = null; // Le client n'existe plus
+                        
+                        if ($sync_customer_id && Customer::customerIdExistsStatic($sync_customer_id)) {
+                            // Client trouvé par sync mais pas par email (email a changé ?)
+                            $customer_id = $sync_customer_id;
+                            
+                            $update_success = self::updateExistingCustomer($customer_id, [
+                                'firstname' => $firstname,
+                                'lastname' => $lastname,
+                                'birthday' => $ann,
+                                'gender' => $gender,
+                                'newsletter' => $newsletter
+                            ]);
+                            
+                            if ($update_success) {
+                                $clients_updated++;
+                                $output .= 'Customer updated via sync: ' . $email . ' (ID: ' . $customer_id . ')' . "\n";
                             } else {
-                                $existing_customer = new Customer($customer_id);
-                                $output .= 'Customer found by API ID: ' . $api_customerid . ' (ID: ' . $customer_id . ')' . "\n";
+                                $clients_errors++;
+                                $output .= 'Error updating customer via sync: ' . $email . "\n";
                             }
-                        }
-                    }
-
-                    // 3. Traitement selon le résultat
-                    if ($customer_id && $existing_customer) {
-                        // Client existant - mise à jour
-                        $existing_customer->firstname = (is_numeric($firstname) ? '-' : $firstname);
-                        $existing_customer->lastname = (is_numeric($lastname) ? '-' : $lastname);
-                        $existing_customer->birthday = $ann;
-                        $existing_customer->id_gender = $gender;
-                        $existing_customer->newsletter = $newsletter;
-
-                        try {
-                            $existing_customer->update();
-                            $output .= 'Customer updated: ' . $customer_id . ' (' . $email . ')' . "\n";
-                            $clients_updated++;
-
-                            // Mettre à jour l'adresse principale si elle existe
-                            $id_address = Address::getFirstCustomerAddressId($customer_id);
-                            if ($id_address) {
-                                $address = new Address($id_address);
-                                $address->firstname = (is_numeric($firstname) ? '-' : $firstname);
-                                $address->lastname = (is_numeric($lastname) ? '-' : $lastname);
-                                $address->address1 = (empty($customerlist['add1']) ? $address->address1 : $customerlist['add1']);
-                                $address->address2 = (empty($customerlist['add2']) ? $address->address2 : $customerlist['add2']);
-                                $address->postcode = (empty($customerlist['cp']) ? $address->postcode : $customerlist['cp']);
-                                $address->city = (empty($customerlist['ville']) ? $address->city : $customerlist['ville']);
-                                $address->phone = str_replace(' ', '', $phone);
-                                $address->id_country = Country::getByIso(empty($customerlist['codePays']) ?
-                                    Configuration::get('PS_LOCALE_COUNTRY') : $customerlist['codePays']);
-
+                            
+                        } else {
+                            // DOUBLE-CHECK avant création (sécurité anti-doublons)
+                            $double_check = self::getCustomerIdByEmail($email);
+                            
+                            if ($double_check) {
+                                // Un autre processus a créé le client pendant notre traitement
+                                $customer_id = $double_check;
+                                $clients_updated++;
+                                $output .= 'Customer found during double-check: ' . $email . ' (ID: ' . $customer_id . ')' . "\n";
+                            } else {
+                                // Création d'un nouveau client
+                                $customer = new Customer();
+                                $customer->firstname = (is_numeric($firstname) ? '-' : $firstname);
+                                $customer->lastname = (is_numeric($lastname) ? '-' : $lastname);
+                                $customer->passwd = '123456789';
+                                $customer->passwd = Tools::hash($customer->passwd);
+                                $customer->email = $email;
+                                $customer->birthday = $ann;
+                                $customer->active = 1;
+                                $customer->id_shop = 1;
+                                $customer->id_shop_group = 1;
+                                $customer->id_gender = $gender;
+                                $customer->id_lang = $default_language_id;
+                                $customer->newsletter = $newsletter;
+                                
                                 try {
-                                    $address->update();
-                                    $output .= 'Address updated for customer: ' . $customer_id . "\n";
+                                    $customer->add();
+                                    $customer_id = $customer->id;
+                                    $clients_created++;
+                                    $output .= 'Customer created: ' . $email . ' (ID: ' . $customer_id . ')' . "\n";
+                                    
+                                    // Créer l'adresse
+                                    $address = new Address();
+                                    $address->id_country = Country::getByIso(empty($customerlist['codePays']) ?
+                                        Configuration::get('PS_LOCALE_COUNTRY') : $customerlist['codePays']);
+                                    $address->id_customer = $customer_id;
+                                    $address->alias = (is_numeric($firstname) ? 'Alias' : $firstname);
+                                    $address->firstname = (is_numeric($firstname) ? '-' : $firstname);
+                                    $address->lastname = (is_numeric($lastname) ? '-' : $lastname);
+                                    $address->address1 = (empty($customerlist['add1']) ? '-' : $customerlist['add1']);
+                                    $address->address2 = (empty($customerlist['add2']) ? '-' : $customerlist['add2']);
+                                    $address->postcode = (empty($customerlist['cp'])) ? '00000' : $customerlist['cp'];
+                                    $address->city = (empty($customerlist['ville'])) ? 'default' : $customerlist['ville'];
+                                    $address->phone = str_replace(' ', '', $phone);
+                                    
+                                    try {
+                                        $address->add();
+                                    } catch (Exception $e) {
+                                        $output .= 'Address creation error: ' . $e->getMessage() . "\n";
+                                    }
+                                    
                                 } catch (Exception $e) {
-                                    $output .= Vccsv::logError($e);
+                                    $clients_errors++;
+                                    $output .= 'Customer creation error: ' . $e->getMessage() . "\n";
+                                    continue;
                                 }
                             }
-                        } catch (Exception $e) {
-                            $output .= Vccsv::logError($e);
-                            $clients_errors++;
-                        }
-                    } else {
-                        // Nouveau client - création
-                        $output .= 'Creating new customer: ' . $email . "\n";
-
-                        $customer = new Customer();
-                        $customer->firstname = (is_numeric($firstname) ? '-' : $firstname);
-                        $customer->lastname = (is_numeric($lastname) ? '-' : $lastname);
-                        $customer->passwd = '123456789';
-                        $customer->passwd = Tools::hash($customer->passwd);
-                        $customer->email = $email;
-                        $customer->birthday = $ann;
-                        $customer->active = 1;
-                        $customer->id_shop = 1;
-                        $customer->id_shop_group = 1;
-                        $customer->id_gender = $gender;
-                        $customer->id_lang = $default_language_id;
-                        $customer->newsletter = $newsletter;
-
-                        try {
-                            $customer->add();
-                            $output .= 'Customer created: ' . $email . ' (ID: ' . $customer->id . ')' . "\n";
-                            $customer_id = $customer->id;
-                            $clients_created++;
-
+                            
                             // Créer la liaison API
                             $array_data = [
                                 'system_customerid' => (int) $customer_id,
                                 'api_customerid' => (int) $api_customerid,
                             ];
-                            Db::getInstance()->insert('pfi_customer_apisync', $array_data);
-
-                            // Créer l'adresse
-                            $address = new Address();
-                            $address->id_country = Country::getByIso(empty($customerlist['codePays']) ?
-                                Configuration::get('PS_LOCALE_COUNTRY') : $customerlist['codePays']);
-                            $address->id_customer = $customer_id;
-                            $address->alias = (is_numeric($firstname) ? 'Alias' : $firstname);
-                            $address->firstname = (is_numeric($firstname) ? '-' : $firstname);
-                            $address->lastname = (is_numeric($lastname) ? '-' : $lastname);
-                            $address->address1 = (empty($customerlist['add1']) ? '-' : $customerlist['add1']);
-                            $address->address2 = (empty($customerlist['add2']) ? '-' : $customerlist['add2']);
-                            $address->postcode = (empty($customerlist['cp'])) ? '00000' : $customerlist['cp'];
-                            $address->city = (empty($customerlist['ville'])) ? 'default' : $customerlist['ville'];
-                            $address->phone = str_replace(' ', '', $phone);
-
-                            try {
-                                $address->add();
-                                $output .= 'Address created for customer: ' . $customer_id . "\n";
-                            } catch (Exception $e) {
-                                $output .= Vccsv::logError($e);
-                            }
-                        } catch (Exception $e) {
-                            $output .= Vccsv::logError($e);
-                            $clients_errors++;
+                            Db::getInstance()->insert('pfi_customer_apisync', $array_data, false, false, Db::ON_DUPLICATE_KEY, true);
                         }
                     }
                 }
 
-                // Résumé
-                $output .= "=== CUSTOMER IMPORT SUMMARY ===\n";
-                $output .= "Clients processed: " . $i . "\n";
-                $output .= "Clients created: " . $clients_created . "\n";
-                $output .= "Clients updated: " . $clients_updated . "\n";
-                $output .= "Clients errors: " . $clients_errors . "\n";
-                $output .= "=== CUSTOMER IMPORT FINISHED ===\n";
             } catch (SoapFault $exception) {
                 $output .= Vccsv::logError($exception);
+                $clients_errors++;
             }
         } else {
-            $output .= 'Customer import disabled in configuration' . "\n";
+            $output .= 'Customer import not allowed' . "\n";
         }
 
-        // Sauvegarder les stats
+        // Sauvegarder les statistiques pour le cron
         self::$last_import_stats = [
             'processed' => $clients_processed,
             'created' => $clients_created,
@@ -563,6 +639,6 @@ class CustomerVccsv extends Vccsv
             'errors' => $clients_errors
         ];
 
-        return $output; // Garder le return normal
+        return $output;
     }
 }

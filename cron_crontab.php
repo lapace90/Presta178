@@ -30,12 +30,14 @@ if (Tools::getIsset('secure_key')) {
             $allow_productimport = Configuration::get('PI_ALLOW_PRODUCTIMPORT');
             $allow_combinationimport = Configuration::get('PI_ALLOW_COMBINATIONIMPORT');
             $allow_customerimport = Configuration::get('PI_ALLOW_CUSTOMERIMPORT');
+            $allow_productexport = Configuration::get('PI_ALLOW_PRODUCTEXPORT');
             $lastcron = date('Y-m-d H:i:s');
             $pfproductimporter = Module::getInstanceByName('pfproductimporter');
             $output = '<u>EXECUTION CRON v' . $pfproductimporter->version
                     . ' sur Prestashop v' . _PS_VERSION_
                     . ' depuis ' . $_SERVER['REMOTE_ADDR']
                     . ' (Last: ' . Configuration::get('PI_LAST_CRON') . ')</u>\n';
+            
             if ($allow_productimport == 1) {
                 // DELETE ARTICLES
                 $output .= $pfproductimporter->deleteArticle();
@@ -60,6 +62,12 @@ if (Tools::getIsset('secure_key')) {
                 // UPDATE CLIENTS
                 // $output .= CustomerVccsv::importCustomer();
             }
+            
+            // EXPORT PRODUITS
+            if ($allow_productexport == 1) {
+                $output .= ProductVccsv::exportAll(1); // iscron = 1
+            }
+            
             // UPDATE COMMANDES
             if (Configuration::get('PI_UPDATE_ORDER_STATUS') == '1') {
                 $output .= $pfproductimporter->orderStatusSyncCron();

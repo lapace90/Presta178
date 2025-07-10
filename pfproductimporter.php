@@ -160,7 +160,11 @@ class PfProductImporter extends Module
                     $output .= $this->renderMainSettingsForm();
                 } elseif (Tools::getValue('PI_ALLOW_PRODUCTEXPORT')) {
                     // 2. Export all prodcuts ?
-                    $output .= $this->renderExportCatalogForm();
+                    // $output .= $this->renderExportCatalogForm();
+                    $output .= $this->displayConfirmation(
+                        'L\'exportation des produits est activée. Vous pouvez maintenant exporter votre catalogue.'
+                    );
+                    $output .= $this->renderMainSettingsForm();
                 } else {
                     $output .= $this->renderMainSettingsForm();
                 }
@@ -197,6 +201,13 @@ class PfProductImporter extends Module
         } elseif (Tools::isSubmit('exportallproduct')) {
             // Export Catalog
             $output = ProductVccsv::exportAll();
+            if ($output) {
+                $output = $this->displayConfirmation('Exportation du catalogue terminée.');
+            } else {
+                $output = $this->displayError('Erreur lors de l\'exportation du catalogue : ');
+            }
+            $output .= $this->renderMainSettingsForm();
+
             return $output;
         } elseif (Tools::isSubmit('SubmitExportorder')) {
             if ($this->saveMainSettingsForm()) {
@@ -243,6 +254,7 @@ class PfProductImporter extends Module
             // TODO : Bloc à supprimer ?
             $productid = Tools::getValue('txtproductid');
             $output = ProductVccsv::productSync($productid);
+            $output = $this->renderMainSettingsForm();
 
             return $output;
         } elseif (Tools::isSubmit('importallproduct')) {
@@ -274,7 +286,12 @@ class PfProductImporter extends Module
             // 0. Main settings
             $output = $this->renderMainSettingsForm();
         }
-
+        if (Tools::isSubmit('clear_filter')) {
+            // Vider les variables et recharger la page logs
+            $url = AdminController::$currentIndex . '&configure=' . $this->name .
+                '&active_tab=logs&token=' . Tools::getAdminTokenLite('AdminModules');
+            Tools::redirectAdmin($url);
+        }
         return $output;
     }
 
@@ -826,9 +843,114 @@ class PfProductImporter extends Module
             'PI_RG10' => Configuration::get('PI_RG10'),
         );
 
-        // Préparer les variables pour le redirect
-        // $formatted_url = strstr($_SERVER['REQUEST_URI'], '&vc_mode= ', true);
-        // $vc_redirect = ($formatted_url != '') ? $formatted_url : $_SERVER['REQUEST_URI'];
+
+        // // Préparer les logs
+        // $today = date('Y-m-d');
+        // $logs_today_url = $this->_path . 'logs_rezomatic' . $today . '.html';
+        // $logs_today_file = dirname(__FILE__) . '/logs_rezomatic' . $today . '.html';
+        // $logs_today_exists = file_exists($logs_today_file);
+        // $logs_today_size = $logs_today_exists ? round(filesize($logs_today_file) / 1024, 2) : 0;
+
+        // // Chercher les logs
+        // $available_logs = [];
+        // $log_files = glob(dirname(__FILE__) . '/logs_rezomatic*.html');
+
+        // if ($log_files) {
+        //     foreach ($log_files as $log_file) {
+        //         $filename = basename($log_file);
+        //         if (preg_match('/logs_rezomatic(\d{4}-\d{2}-\d{2})\.html/', $filename, $matches)) {
+        //             $log_date = $matches[1];
+        //             $available_logs[] = [
+        //                 'date' => $log_date,
+        //                 'date_formatted' => date('d/m/Y', strtotime($log_date)),
+        //                 'url' => $this->_path . $filename,
+        //                 'size_kb' => round(filesize($log_file) / 1024, 2)
+        //             ];
+        //         }
+        //     }
+
+        //     // Trier par date décroissante et limiter à 10
+        //     usort($available_logs, function ($a, $b) {
+        //         return strcmp($b['date'], $a['date']);
+        //     });
+        //     $available_logs = array_slice($available_logs, 0, 10);
+        // }
+
+
+        // LOGS - Variables avec pagination et recherche
+        $today = date('Y-m-d');
+        $logs_today_url = $this->_path . 'logs_rezomatic' . $today . '.html';
+        $logs_today_file = dirname(__FILE__) . '/logs_rezomatic' . $today . '.html';
+        $logs_today_exists = file_exists($logs_today_file);
+        $logs_today_size = $logs_today_exists ? round(filesize($logs_today_file) / 1024, 2) : 0;
+
+        // Paramètres de recherche et pagination
+        $search_month = Tools::getValue('search_month', '');
+        $search_year = Tools::getValue('search_year', '');
+        $current_page = max(1, (int)Tools::getValue('page', 1));
+        $logs_per_page = 10;
+
+        // Chercher tous les logs
+        $all_logs = [];
+        $log_files = glob(dirname(__FILE__) . '/logs_rezomatic*.html');
+
+        if ($log_files) {
+            foreach ($log_files as $log_file) {
+                $filename = basename($log_file);
+                if (preg_match('/logs_rezomatic(\d{4}-\d{2}-\d{2})\.html/', $filename, $matches)) {
+                    $log_date = $matches[1];
+
+                    // Filtrage par date
+                    $include_log = true;
+                    if ($search_year && substr($log_date, 0, 4) !== $search_year) {
+                        $include_log = false;
+                    }
+                    if ($search_month && substr($log_date, 5, 2) !== $search_month) {
+                        $include_log = false;
+                    }
+
+                    if ($include_log) {
+                        $all_logs[] = [
+                            'date' => $log_date,
+                            'date_formatted' => date('d/m/Y', strtotime($log_date)),
+                            'url' => $this->_path . $filename,
+                            'size_kb' => round(filesize($log_file) / 1024, 2)
+                        ];
+                    }
+                }
+            }
+
+            // Trier par date décroissante
+            usort($all_logs, function ($a, $b) {
+                return strcmp($b['date'], $a['date']);
+            });
+        }
+
+        // Calculs de pagination
+        $total_logs_found = count($all_logs);
+        $total_pages = ceil($total_logs_found / $logs_per_page);
+        $current_page = min($current_page, max(1, $total_pages));
+
+        // Logs pour la page actuelle
+        $offset = ($current_page - 1) * $logs_per_page;
+        $available_logs = array_slice($all_logs, $offset, $logs_per_page);
+        $logs_displayed = count($available_logs);
+
+        // Noms des mois
+        $months_names = [
+            '01' => 'Janvier',
+            '02' => 'Février',
+            '03' => 'Mars',
+            '04' => 'Avril',
+            '05' => 'Mai',
+            '06' => 'Juin',
+            '07' => 'Juillet',
+            '08' => 'Août',
+            '09' => 'Septembre',
+            '10' => 'Octobre',
+            '11' => 'Novembre',
+            '12' => 'Décembre'
+        ];
 
         // Variables pour le mapping
         $feedid = 1;
@@ -837,11 +959,20 @@ class PfProductImporter extends Module
 
         // Créer newproductfields (logique de buildMappingFieldsForm)
         $productfields = Vccsv::getxiProductFields();
+        if (!is_array($productfields)) {
+            $productfields = [];
+        }
         $productfields[] = 'image_url';
         $productfields[] = 'product_url';
         $productfields[] = 'manufacturer';
         $productfields[] = 'available_date';
         $productfields[] = 'combination_reference';
+
+        // Préparer les variables pour les logs
+        $today = date('Y-m-d');
+        $logs_today_url = $this->_path . 'logs_rezomatic' . $today . '.html';
+        $logs_today_file = dirname(__FILE__) . '/logs_rezomatic' . $today . '.html';
+        $logs_today_exists = file_exists($logs_today_file);
 
         $mylist = array(
             'name',
@@ -866,6 +997,10 @@ class PfProductImporter extends Module
             'id_tax_rules_group',
             'available_date',
             'combination_reference',
+            'logs_today_url' => $logs_today_url,
+            'logs_today_exists' => $logs_today_exists,
+            'logs_today_date' => date('d/m/Y'),
+            'module_path' => $this->_path
         );
 
         $newproductfields = array();
@@ -884,17 +1019,6 @@ class PfProductImporter extends Module
         if ($feedurl && Tools::strlen($feedurl) > 0) {
             // Récupérer les données pour le mapping des champs
             $raw_products_arr = $this->getFieldsFromFeed($feedurl);
-
-            // Si pas de champs, définir des champs par défaut
-            // if (empty($raw_products_arr)) {
-            //     $raw_products_arr = array(
-            //         'codeArt' => 'Code Article',
-            //         'taille' => 'Taille',
-            //         'couleur' => 'Couleur',
-            //         'description' => 'Description',
-            //         'dArr' => 'Date de création',
-            //     );
-            // }
 
             // Récupérer les catégories du feed
             $fam = Vccsv::getXmlfield('id_category_default');
@@ -922,25 +1046,7 @@ class PfProductImporter extends Module
         // Récupérer les catégories Prestashop
         $cats = Category::getNestedCategories(null, 1, true);
 
-        // Construire le tableau d'options de catégories
-        function buildCategoryOptionsArray($categories, $depth = 0)
-        {
-            $options = [];
-            foreach ($categories as $category) {
-                $options[] = [
-                    'id_category' => $category['id_category'],
-                    'name' => $category['name'],
-                    'depth' => $depth
-                ];
-                if (isset($category['children']) && !empty($category['children'])) {
-                    $children = buildCategoryOptionsArray($category['children'], $depth + 1);
-                    $options = array_merge($options, $children);
-                }
-            }
-            return $options;
-        }
-
-        $categoryOptionsArray = buildCategoryOptionsArray($cats, 0);
+        $categoryOptionsArray = $this->buildCategoryOptionsArray($cats, 0);
 
         // Précalcul des catégories mappées
         $mappedCategories = [];
@@ -950,7 +1056,6 @@ class PfProductImporter extends Module
                 $mappedCategories[$category_name] = $row ? $row : null;
             }
         }
-
 
         // Préparer toutes les variables pour le template
         $this->context->smarty->assign(array(
@@ -974,8 +1079,22 @@ class PfProductImporter extends Module
             'form_action' => AdminController::$currentIndex . '&configure=' . $this->name . '&token=' . Tools::getAdminTokenLite('AdminModules'),
             'raw_products_arr' => $raw_products_arr,
             'final_products_arr' => $final_products_arr,
-            // Variables pour le redirect et mapping
-            // 'vc_redirect' => $vc_redirect,
+            'logs_today_date' => $today,
+            'logs_today_date_formatted' => date('d/m/Y'),
+            'logs_today_url' => $logs_today_url,
+            'logs_today_exists' => $logs_today_exists,
+            'logs_today_size' => $logs_today_size,
+            'available_logs' => $available_logs,
+            'module_path' => $this->_path,
+            'logs_today_date' => $today,
+            'total_logs_found' => $total_logs_found,
+            'logs_displayed' => $logs_displayed,
+            'logs_per_page' => $logs_per_page,
+            'current_page' => $current_page,
+            'total_pages' => $total_pages,
+            'search_month' => $search_month,
+            'search_year' => $search_year,
+            'months_names' => $months_names,
             'feedid' => $feedid,
             'feedurl' => $feedurl,
             'fixcategory' => $fixcategory,
@@ -987,6 +1106,24 @@ class PfProductImporter extends Module
         ));
 
         return $this->display(__FILE__, 'views/templates/admin/main_settings.tpl');
+    }
+
+    // Construire le tableau d'options de catégories
+    public function buildCategoryOptionsArray($categories, $depth = 0)
+    {
+        $options = [];
+        foreach ($categories as $category) {
+            $options[] = [
+                'id_category' => $category['id_category'],
+                'name' => $category['name'],
+                'depth' => $depth
+            ];
+            if (isset($category['children']) && !empty($category['children'])) {
+                $children = $this->buildCategoryOptionsArray($category['children'], $depth + 1);
+                $options = array_merge($options, $children);
+            }
+        }
+        return $options;
     }
 
     private function getFieldsFromFeed($feedurl)

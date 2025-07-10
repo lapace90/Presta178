@@ -57,6 +57,11 @@
                     Paiements
                 </a>
             </li>
+            <li role="presentation" class="{if $active_tab == 'logs'}active{/if}">
+                <a href="#logs_tab" aria-controls="logs" role="tab" data-toggle="tab">
+                    Logs
+                </a>
+            </li>
         </ul>
 
         <!-- Contenu des onglets -->
@@ -105,11 +110,7 @@
                             <h3>Configuration de l'association des champs</h3>
                                 {if isset($raw_products_arr) && is_array($raw_products_arr)}
 
-
-
                                     {include file="module:pfproductimporter/views/templates/hook/buildmappingfieldsform.tpl"}
-
-
 
                                 {else}
                                     <p>Aucun champ disponible pour l'association.</p>
@@ -123,11 +124,7 @@
                                 <h3>Configuration de l'association des catégories</h3>
                                     {if isset($final_products_arr) && is_array($final_products_arr)}
 
-
-
                                         {include file="module:pfproductimporter/views/templates/hook/mappingcategoryform.tpl"}
-
-
 
                                     {else}
                                         <p>Aucune catégorie disponible pour l'association.</p>
@@ -163,10 +160,16 @@
                         <div class="panel-footer">
                             <button type="submit" name="Submitdirectimport" class="btn btn-default pull-right">
                                 <i class="process-icon-save"></i> Lancer l'import des paiements
-                            </button>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Onglet Logs -->
+            <div role="tabpanel" class="tab-pane {if $active_tab == 'logs'}active{/if}" id="logs_tab">
+                <div class="form-section">
+                    {include file="module:pfproductimporter/views/templates/admin/logs.tpl"}
                         </div>
                     </div>
-                </div>
             </form>
         </div>
 
@@ -225,3 +228,5 @@
                 margin-top: 20px;
             }
         </style>
+
+        

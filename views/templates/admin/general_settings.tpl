@@ -1,6 +1,9 @@
+<!-- Container pour les notifications toast -->
+<div class="toast-container" id="toast-container"></div>
+
+<!-- Formulaire de configuration générale pour le module PFProductImporter -->
 <div class="form-section">
     <h3>Paramètres généraux</h3>
-    
     <!-- URL du flux -->
     <div class="form-group">
         <label class="control-label col-lg-3">URL du flux</label>
@@ -8,7 +11,7 @@
             <input type="text" name="SYNC_CSV_FEEDURL" value="{$fields_value.SYNC_CSV_FEEDURL}" class="lg" required />
         </div>
     </div>
-    
+
     <!-- ID logiciel -->
     <div class="form-group">
         <label class="control-label col-lg-3">ID logiciel</label>
@@ -16,7 +19,7 @@
             <input type="text" name="PI_SOFTWAREID" value="{$fields_value.PI_SOFTWAREID}" class="lg" required />
         </div>
     </div>
-    
+
     <!-- Synchroniser les quantités depuis -->
     <div class="form-group">
         <label class="control-label col-lg-3">Synchroniser les quantités depuis</label>
@@ -25,21 +28,48 @@
             <p class="help-block">Laisser vide pour les quantités globales.</p>
         </div>
     </div>
-    
+
     <!-- Activer la mise à jour périodique -->
     <div class="form-group">
         <label class="control-label col-lg-3">Activer la mise à jour périodique</label>
         <div class="col-lg-9">
             <span class="switch prestashop-switch fixed-width-lg">
-                <input type="radio" name="PI_CRON_TASK" id="PI_CRON_TASK_on" value="1" {if $fields_value.PI_CRON_TASK}checked{/if}>
+                <input type="radio" name="PI_CRON_TASK" id="PI_CRON_TASK_on" value="1"
+                    {if $fields_value.PI_CRON_TASK}checked{/if}>
                 <label for="PI_CRON_TASK_on">Oui</label>
-                <input type="radio" name="PI_CRON_TASK" id="PI_CRON_TASK_off" value="0" {if !$fields_value.PI_CRON_TASK}checked{/if}>
+                <input type="radio" name="PI_CRON_TASK" id="PI_CRON_TASK_off" value="0"
+                    {if !$fields_value.PI_CRON_TASK}checked{/if}>
                 <label for="PI_CRON_TASK_off">Non</label>
                 <a class="slide-button btn"></a>
             </span>
             <p class="help-block">
-                Dernière mise à jour : {Tools::displayDate(Configuration::get('PI_LAST_CRON'), null, true)}
+                Dernière mise à jour : <span id="datetime">
+                    {Tools::displayDate(Configuration::get('PI_LAST_CRON'), null, true)}</span>
+            </p>
+        </div>
+    </div>
+
+    <!-- Lancer la tâche CRON manuellement -->
+    <div class="form-group">
+        <label class="control-label col-lg-3">Lancer la tâche CRON manuellement</label>
+        <div class="col-lg-9">
+            <a href="http://127.0.0.1/presta178/modules/pfproductimporter/cron_crontab.php?secure_key=woocommerce"
+                target="_blank" type="button" class="btn btn-primary" id="run-cron-task">Lancer</a>
+            <p class="help-block">
+                Vous pouvez lancer la tâche CRON manuellement pour mettre à jour les produits immédiatement.
             </p>
         </div>
     </div>
 </div>
+
+
+<script>
+    document.getElementById('run-cron-task').addEventListener('click', function() {
+
+        // Mettre à jour la date de la dernière exécution
+        var lastUpdate = new Date().toLocaleDateString('fr-FR') + ' ' + new Date().toLocaleTimeString('fr-FR');
+        var helpBlock = document.getElementById('datetime');
+        helpBlock.textContent = lastUpdate;
+    });
+
+</script>

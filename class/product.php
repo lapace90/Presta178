@@ -1,4 +1,5 @@
 <?php
+
 /**
  * 2018 - Definima
  *
@@ -217,7 +218,7 @@ class ProductVccsv extends Vccsv
                     foreach ($combinations as $c) {
                         try {
                             $reference = $c[Configuration::get('PI_PRODUCT_REFERENCE')];
-                            if(empty($reference))
+                            if (empty($reference))
                                 continue;
                             $stock_available = StockAvailable::getQuantityAvailableByProduct(
                                 $c['id_product'],
@@ -252,11 +253,11 @@ class ProductVccsv extends Vccsv
                                 $new_stock
                             ) !== false) {
                                 $output .= 'Stock mis a jour produit ' . $reference . ' : ' .
-                                            $stock_available . ' -> ' . $new_stock . '\n';
+                                    $stock_available . ' -> ' . $new_stock . '\n';
                             } else {
                                 $output .= 'Erreur de mise a jour stock declinaison ' . $c['id_product_attribute']
                                     . ' ' . $reference . ' : ' .
-                                            $stock_available . ' -> ' . $new_stock . '\n';
+                                    $stock_available . ' -> ' . $new_stock . '\n';
                             }
                         } catch (SoapFault $exception) {
                             $output .= Vccsv::logError($exception);
@@ -266,7 +267,7 @@ class ProductVccsv extends Vccsv
                     // Sinon produit sans declinaison
                     try {
                         $reference = $feedproduct[Configuration::get('PI_PRODUCT_REFERENCE')];
-                        if(empty($reference))
+                        if (empty($reference))
                             continue;
                         $stock_available = StockAvailable::getQuantityAvailableByProduct($id_product);
                         // Prise en compte uniquement des stocks du PDV renseigné ?
@@ -294,10 +295,10 @@ class ProductVccsv extends Vccsv
                         $new_stock = $stock_rezomatic - $commandecours;
                         if (StockAvailable::setQuantity($id_product, 0, $new_stock) !== false) {
                             $output .= 'Stock mis a jour produit ' . $reference . ' : ' .
-                                        $stock_available . ' -> ' . $new_stock . '\n';
+                                $stock_available . ' -> ' . $new_stock . '\n';
                         } else {
                             $output .= 'Erreur de mise a jour stock ' . $id_product . ' ' . $reference . ' : ' .
-                                        $stock_available . ' -> ' . $new_stock . '\n';
+                                $stock_available . ' -> ' . $new_stock . '\n';
                         }
                     } catch (SoapFault $exception) {
                         $output .= Vccsv::logError($exception);
@@ -477,32 +478,34 @@ class ProductVccsv extends Vccsv
                 $name = $product->name[$id_lang];
                 $name = Tools::substr(trim(preg_replace('/[^0-9A-Za-z :\.\(\)\?!\+&\,@_-]/i', ' ', $name)), 0, 119);
                 $wholesale_price = $product->wholesale_price;
-                // Famille
+
+                //Extraction de la hiérarchie complète : rayon > fam > sFam
+                $rayon = null;
+                $fam = null;
+                $sfam = null;
+
                 if ($allow_categoryexport == 1) {
                     $id_category_default = $product->id_category_default;
-                    $categorys = new Category($id_category_default);
-                    $fam = Tools::replaceAccentedChars($categorys->name[$id_lang]);
-                    $fam = Tools::substr(trim(preg_replace('/[^0-9A-Za-z :\.\(\)\?!\+&\,@_-]/i', ' ', $fam)), 0, 49);
-                } else {
-                    $fam = null;
-                }
-                // Sous-famille
-                if ($allow_categoryexport == 1) {
+                    // Récupération du chemin complet de la catégorie
                     if (version_compare(_PS_VERSION_, '1.6', '>') === true) {
-                        $sfam = Tools::getPath('', $id_category_default);
+                        $full_path = Tools::getPath('', $id_category_default);
                     } else {
-                        $sfam = Tools::getPath($id_category_default);
+                        $full_path = Tools::getPath($id_category_default);
                     }
-                    if (!empty($sfam)) {
-                        $sfam = Tools::replaceAccentedChars(strip_tags($sfam));
-                        $sfam = preg_replace('/[^0-9A-Za-z :\.\(\)\?!\+&\,@_-]/i', ' ', $sfam);
-                        $sfam = Tools::substr(trim(preg_replace('/\s{2,}/', ' ', $sfam)), 0, 49);
-                    } else {
-                        $sfam = '';
+                    if (!empty($full_path)) {
+                        // Nettoyage du chemin (suppression des balises HTML)
+                        $clean_path = Tools::replaceAccentedChars(strip_tags($full_path));
+                        $clean_path = preg_replace('/[^0-9A-Za-z :\.\(\)\?!\+&\,@_>-]/i', ' ', $clean_path);
+                        $clean_path = trim(preg_replace('/\s{2,}/', ' ', $clean_path));
+                        // Séparation des niveaux de hiérarchie (utilise " > " comme séparateur)
+                        $hierarchy_levels = array_map('trim', explode('>', $clean_path));
+                        $output .= print_r($hierarchy_levels, true) . '\n';
+                        if (isset($hierarchy_levels[0])) $rayon = $hierarchy_levels[0];
+                        if (isset($hierarchy_levels[1])) $fam = $hierarchy_levels[1];
+                        if (isset($hierarchy_levels[2])) $sfam = $hierarchy_levels[2];
                     }
-                } else {
-                    $sfam = null;
                 }
+
                 // Fournisseur
                 if (!empty($product->id_supplier)) {
                     $id_supplier = $product->id_supplier;
@@ -534,7 +537,7 @@ class ProductVccsv extends Vccsv
                 foreach ($combinations as $c) {
                     if (!empty($c[$reference_field])) {
                         $id_product_attribute = (int) $c['id_product_attribute'];
-                        $output .= CombinationVccsv::combinationSync($id_product_attribute);
+                        $output .= CombinationVccsv::syncCombination($id_product_attribute);
                     }
                 }
                 if ($id_product_attribute > 0) {
@@ -568,7 +571,7 @@ class ProductVccsv extends Vccsv
                         $softwareid,
                         $reference,
                         $name,
-                        null,
+                        $rayon, // rayon
                         $fam,
                         $sfam,
                         $wholesale_price,
@@ -582,14 +585,26 @@ class ProductVccsv extends Vccsv
                         $isvirtual,
                         null,
                         null,
-                        null,
+                        null, // type
                         null,
                         $wholesale_price,
                         $condition,
                         null,
                         null,
-                        $four
+                        $four,
+                        null, // codeDeclinaison
+                        null, // description  
+                        null, // saison
+                        null, // annee
+                        null, // uniteMesure
+                        null, // tailleContenant
+                        null, // forceSerial
+                        null, // typeSerial
+                        null, // garantie
+                        null, // mp
+
                     );
+
                     $output .= parent::l('Product') . ' ' . $reference . ' ' . parent::l('updated') . ' -> ' . $reference . '\n';
                     $output .= print_r((array) $art, true) . '\n';
                 } else {
@@ -597,7 +612,7 @@ class ProductVccsv extends Vccsv
                         $softwareid,
                         $reference,
                         $name,
-                        '',
+                        $rayon, // rayon
                         $fam,
                         $sfam,
                         $wholesale_price,
@@ -609,21 +624,74 @@ class ProductVccsv extends Vccsv
                         $loyalty,
                         $ecotax,
                         $isvirtual,
-                        '',
-                        '',
-                        '',
-                        '',
+                        null,
+                        null,
+                        null, // type
+                        null,
                         $wholesale_price,
                         $condition,
-                        '',
-                        '',
-                        $four
+                        null,
+                        null,
+                        $four,
+                        null, // codeDeclinaison
+                        null, // description  
+                        null, // saison
+                        null, // annee
+                        null, // uniteMesure
+                        null, // tailleContenant
+                        null, // forceSerial
+                        null, // typeSerial
+                        null, // garantie
+                        null, // mp
                     );
                     $output .= parent::l('Product') . ' ' . $reference . ' ' . parent::l('created') . ' -> ' . $condition . '\n';
                     // $output .= parent::l('EAN').' '.$ean.'\n';
                     // $output .= print_r((array)$product, true).'\n';
                     $output .= print_r((array) $art, true) . '\n';
+
+
+                    // Log creation d'un produit décliné
+                    //
+                    // Prestashop to Rezomatic : combinationSync 0000077063481 created\nArray  ( 
+                    // [codeArt] => 0000077063481 
+                    // [des] => Produit Decline Prestashop 
+                    // [rayon] => 
+                    // [fam] => VETEMENTS 
+                    // [sFam] => ACCUEIL VETEMENTS 
+                    // [paHT] => 25.000000 
+                    // [tTVA] => 20 
+                    // [pvTTC] => 88.490000 
+                    // [poids] => 0 
+                    // [taille] => XL 
+                    // [couleur] => JAUNE 
+                    // [pointFid] => 
+                    // [deee] => 0.000000 
+                    // [prest] => 
+                    // [mini] => 0 
+                    // [maxi] => 0 
+                    // [type] => 
+                    // [avis] => 
+                    // [link] => 
+                    // [dArr] => 
+                    // [pRachat] => 25.000000 
+                    // [neuf] => 1 
+                    // [stock] => 0 
+                    // [visibilite] => -1 
+                    // [four] => 
+                    // [images] => 
+                    // [codeDeclinaison] => 0000077063465 
+                    // [description] => 
+                    // [saison] => 
+                    // [annee] => 
+                    // [uniteMesure] => 
+                    // [tailleContenant] => 
+                    // [forceSerial] => 
+                    // [typeSerial] => 
+                    // [garantie] => 
+                    // [mp] => 
+                    // ) \n
                 }
+
                 if ($ean != '') {
                     $free_ean = $sc->isFreeCodeArt($softwareid, $ean);
                     if ($free_ean) {
@@ -645,22 +713,141 @@ class ProductVccsv extends Vccsv
      *
      * @return void
      */
-    public static function exportAll()
+    public static function exportAll($iscron = 0)
     {
         $allow_productexport = Configuration::get('PI_ALLOW_PRODUCTEXPORT');
         $output = '';
+
         if ($allow_productexport == 1) {
             $id_lang = (int) Configuration::get('PS_LANG_DEFAULT');
+
+            // Forcer l'affichage en temps réel pour les crons
+            if ($iscron == 1) {
+                flush();
+                ini_set('max_execution_time', 0);
+                ini_set('memory_limit', '2048M');
+            }
+
             try {
-                $products = Product::getProducts($id_lang, 0, 0, 'id_product', 'asc', false, 0);
+                // Récupérer la date de dernière exécution du cron
+                $last_cron = Configuration::get('PI_LAST_CRON');
+
+                if ($iscron == 1) {
+                    echo '-------------------------------------------------<br/>';
+                    echo 'EXPORT CATALOGUE VERS REZOMATIC<br/>';
+                    echo '-------------------------------------------------<br/>';
+                    if ($last_cron) {
+                        echo 'Exporter les produits modifiés depuis le dernier cron<br/>';
+                        echo 'Dernière exécution du cron : ' . $last_cron . '<br/>';
+                    } else {
+                        echo 'Exporter tous les produits (premier export)<br/>';
+                    }
+                    echo '-------------------------------------------------<br/>';
+                }
+
+                // Construire la requête pour récupérer les produits
+                if ($last_cron) {
+                    // Export des produits modifiés depuis le dernier cron
+                    $products = Db::getInstance()->executeS('
+                    SELECT p.id_product, pl.name, p.date_add, p.date_upd
+                    FROM `' . _DB_PREFIX_ . 'product` p
+                    LEFT JOIN `' . _DB_PREFIX_ . 'product_lang` pl ON (p.id_product = pl.id_product AND pl.id_lang = ' . (int)$id_lang . ')
+                    WHERE p.active = 1 
+                    AND (p.date_add > "' . pSQL($last_cron) . '" OR p.date_upd > "' . pSQL($last_cron) . '")
+                    ORDER BY p.date_upd DESC, p.date_add DESC
+                ');
+                } else {
+                    // Premier export ou pas de date de référence : export complet
+                    $products = Product::getProducts($id_lang, 0, 0, 'id_product', 'asc', false, 0);
+                }
+
+                $total_products = count($products);
+                $processed = 0;
+                $success = 0;
+                $errors = 0;
+
+                if ($iscron == 1) {
+                    echo 'Produits à exporter : ' . $total_products . '<br/>';
+                    echo '-------------------------------------------------<br/>';
+                }
+
+                if ($total_products == 0) {
+                    $msg = 'Aucun produit à exporter';
+                    $output .= $msg . "\n";
+                    if ($iscron == 1) {
+                        echo $msg . '<br/>';
+                        if ($last_cron) {
+                            echo 'Tous les produits sont à jour depuis le dernier cron<br/>';
+                        }
+                        echo '-------------------------------------------------<br/>';
+                    }
+                    return $output;
+                }
+
                 foreach ($products as $item) {
-                    $output .= ProductVccsv::productSync($item['id_product']);
+                    $processed++;
+
+                    try {
+                        $result = ProductVccsv::productSync($item['id_product']);
+
+                        if ($iscron == 1 && $processed % 10 == 0) {
+                            echo 'Progress : ' . $processed . '/' . $total_products . ' products processed<br/>';
+                            flush();
+                        }
+
+                        if ($result && strpos($result, 'Error') === false) {
+                            $success++;
+                        } else {
+                            $errors++;
+                            $output .= 'Erreur produit ID ' . $item['id_product'] . ': ' . $result . "\n";
+                        }
+
+                        $output .= $result;
+                    } catch (Exception $e) {
+                        $errors++;
+                        $error_msg = 'Exception for product ID ' . $item['id_product'] . ': ' . $e->getMessage();
+                        $output .= $error_msg . "\n";
+
+                        if ($iscron == 1) {
+                            echo $error_msg . '<br/>';
+                        }
+                    }
                 }
             } catch (SoapFault $exception) {
-                $output .= Vccsv::logError($exception);
+                $error_msg = Vccsv::logError($exception);
+                $output .= $error_msg;
+                $errors++;
+
+                if ($iscron == 1) {
+                    echo 'SOAP Error : ' . $error_msg . '<br/>';
+                }
+            }
+
+            // Statistiques finales
+            if ($iscron == 1) {
+                echo '-------------------------------------------------<br/>';
+                echo 'Nombre de produits traités : ' . $processed . '<br/>';
+                echo '-------------------------------------------------<br/>';
+                echo 'Nombre de produits exportés avec succès : ' . $success . '<br/>';
+                echo '-------------------------------------------------<br/>';
+                echo 'Nombre de produits en erreur à l\'export : ' . $errors . '<br/>';
+                echo '-------------------------------------------------<br/>';
+                if ($last_cron) {
+                    echo 'Export terminé : Produits modifiés depuis ' . $last_cron . '<br/>';
+                } else {
+                    echo 'Export terminé : Tous les produits<br/>';
+                }
+                echo '-------------------------------------------------<br/>';
             }
         } else {
-            $output = parent::l('Product export not allowed') . '\n';
+            $error_msg = 'Product export not allowed';
+            $output = $error_msg . "\n";
+
+            if ($iscron == 1) {
+                echo '-------------------------------------------------<br/>';
+                echo $error_msg . '<br/>';
+                echo '-------------------------------------------------<br/>';
+            }
         }
 
         return $output;
@@ -850,8 +1037,10 @@ class ProductVccsv extends Vccsv
                 // Combination
                 $id_product_attribute = 0;
                 Db::getInstance()->delete('product_attribute_image', 'id_image = ' . (int) $image->id);
-                if (isset($img['id_product_attribute']) && $img['id_product_attribute']
-                    && $img['id_product_attribute'] != 0) {
+                if (
+                    isset($img['id_product_attribute']) && $img['id_product_attribute']
+                    && $img['id_product_attribute'] != 0
+                ) {
                     $id_product_attribute = $img['id_product_attribute'];
                     Db::getInstance()->insert('product_attribute_image', [
                         'id_product_attribute' => (int) $img['id_product_attribute'],
