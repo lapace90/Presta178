@@ -39,7 +39,7 @@ class PfProductImporter extends Module
     {
         $this->name = 'pfproductimporter';
         $this->tab = 'migration_tools';
-        $this->version = '2.6.2';
+        $this->version = '2.7.0';
         $this->author = 'Definima/TGM';
         $this->ps_versions_compliancy = [
             'min' => '1.6.0.4',
@@ -344,7 +344,7 @@ class PfProductImporter extends Module
             if ($this->isPrestashop16()) {
                 $output .= CombinationVccsv::syncCombination(
                     $id_product,
-                    Tools::getValue('attribute_' . $reference_field), // vérifier ici
+                    Tools::getValue('attribute_' . $reference_field),
                     Tools::getValue('attribute_ean13'),
                     Tools::getValue('attribute_wholesale_price'),
                     Tools::getValue('attribute_price_impact'),
@@ -842,40 +842,6 @@ class PfProductImporter extends Module
             'PI_RG9' => Configuration::get('PI_RG9'),
             'PI_RG10' => Configuration::get('PI_RG10'),
         );
-
-
-        // // Préparer les logs
-        // $today = date('Y-m-d');
-        // $logs_today_url = $this->_path . 'logs_rezomatic' . $today . '.html';
-        // $logs_today_file = dirname(__FILE__) . '/logs_rezomatic' . $today . '.html';
-        // $logs_today_exists = file_exists($logs_today_file);
-        // $logs_today_size = $logs_today_exists ? round(filesize($logs_today_file) / 1024, 2) : 0;
-
-        // // Chercher les logs
-        // $available_logs = [];
-        // $log_files = glob(dirname(__FILE__) . '/logs_rezomatic*.html');
-
-        // if ($log_files) {
-        //     foreach ($log_files as $log_file) {
-        //         $filename = basename($log_file);
-        //         if (preg_match('/logs_rezomatic(\d{4}-\d{2}-\d{2})\.html/', $filename, $matches)) {
-        //             $log_date = $matches[1];
-        //             $available_logs[] = [
-        //                 'date' => $log_date,
-        //                 'date_formatted' => date('d/m/Y', strtotime($log_date)),
-        //                 'url' => $this->_path . $filename,
-        //                 'size_kb' => round(filesize($log_file) / 1024, 2)
-        //             ];
-        //         }
-        //     }
-
-        //     // Trier par date décroissante et limiter à 10
-        //     usort($available_logs, function ($a, $b) {
-        //         return strcmp($b['date'], $a['date']);
-        //     });
-        //     $available_logs = array_slice($available_logs, 0, 10);
-        // }
-
 
         // LOGS - Variables avec pagination et recherche
         $today = date('Y-m-d');

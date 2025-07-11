@@ -338,9 +338,10 @@ WHERE pac.id_product_attribute=' . (int) $id_product_attribute . '
                     }
                 }
                 $taille = Tools::replaceAccentedChars($taille);
-                $taille = Tools::substr(preg_replace('/[^0-9A-Za-z :\.\(\)\?!\+&\,@_-]/i', ' ', $taille), 0, 19);
+                $taille = Tools::substr(preg_replace('/[^0-9A-Za-z :\.\,\(\)\?!\+&@_-]/i', ' ', $taille), 0, 19);
+
                 $couleur = Tools::replaceAccentedChars($couleur);
-                $couleur = Tools::substr(preg_replace('/[^0-9A-Za-z :\.\(\)\?!\+&\,@_-]/i', ' ', $couleur), 0, 19);
+                $couleur = Tools::substr(preg_replace('/[^0-9A-Za-z :\.\,\(\)\?!\+&@_-]/i', ' ', $couleur), 0, 19);
             }
             $free = $sc->isFreeCodeArt($softwareid, $reference_combination);
             // L'article existe sur Rezomatic, on le met à jour
@@ -349,7 +350,7 @@ WHERE pac.id_product_attribute=' . (int) $id_product_attribute . '
                     $softwareid,
                     $reference_combination,
                     $name,
-                    $rayon, //  <-- J'ai ajouté $rayon
+                    $rayon,
                     $fam,
                     $sfam,
                     $wholesale_price,
@@ -419,16 +420,13 @@ WHERE pac.id_product_attribute=' . (int) $id_product_attribute . '
         return $output;
     }
 
-
     /**
      * Synchronisation des déclinaisons PS -> Rezomatic
+     * VERSION CORRIGÉE
      *
      * @param $id_product_attribute
      *
      * @return string
-     *
-     * @deprecated N'est pas utilisée, gardée pour le moment
-     * @see PfProductImporter::hookActionProductUpdate()
      */
     public static function combinationSync($id_product_attribute)
     {
@@ -445,6 +443,10 @@ WHERE pac.id_product_attribute=' . (int) $id_product_attribute . '
                 $sc = new SoapClient($feedurl, ['keep_alive' => false]);
                 $Combination = new Combination($id_product_attribute);
                 $Product = new Product($Combination->id_product, false, $id_lang);
+
+                // Récupérer la référence du produit parent pour codeDeclinaison
+                $product_parent_reference = $Product->$reference_field;
+
                 // Des
                 $name = Tools::replaceAccentedChars($Product->name);
                 $name = Tools::substr(trim(preg_replace('/[^0-9A-Za-z :\.\(\)\?!\+&\,@_-]/i', ' ', $name)), 0, 119);
@@ -474,13 +476,13 @@ WHERE pac.id_product_attribute=' . (int) $id_product_attribute . '
                         $clean_path = trim(preg_replace('/\s{2,}/', ' ', $clean_path));
                         // Séparation des niveaux de hiérarchie (utilise " > " comme séparateur)
                         $hierarchy_levels = array_map('trim', explode('>', $clean_path));
-                        $output .= print_r($hierarchy_levels, true) . '\n';
 
                         if (isset($hierarchy_levels[0])) $rayon = $hierarchy_levels[0];
                         if (isset($hierarchy_levels[1])) $fam = $hierarchy_levels[1];
                         if (isset($hierarchy_levels[2])) $sfam = $hierarchy_levels[2];
                     }
                 }
+
                 // Fournisseur
                 if (!empty($Product->id_supplier)) {
                     $id_supplier = $Product->id_supplier;
@@ -490,17 +492,21 @@ WHERE pac.id_product_attribute=' . (int) $id_product_attribute . '
                 } else {
                     $four = null;
                 }
+
                 $reference_combination = $Combination->$reference_field;
+
                 // Si la référence est vide, pas d'export
                 if (empty($reference_combination) && (!is_numeric($reference_combination))) {
                     return '';
                 }
+
                 // Si déjà exportée dans le même script, pas de nouvel export
                 if ((!empty(ProductVccsv::$exported)) && in_array($reference_combination, ProductVccsv::$exported)) {
                     return '';
                 } else {
                     ProductVccsv::$exported[] = $reference_combination;
                 }
+
                 $loyalty = '';
                 $ecotax = $Combination->ecotax;
                 $tax = Tax::getProductTaxRate((int) $Combination->id_product);
@@ -512,7 +518,7 @@ WHERE pac.id_product_attribute=' . (int) $id_product_attribute . '
                     $condition = 0;
                 }
 
-                $final_price = number_format(($Combination->price + $Product->price) * (1 + ($tax / 100)) + $Product->ecotax, 6, '.', '');
+                $final_price = number_format(($Combination->price + $Product->price) * (1 + ($tax / 100)) + $Combination->ecotax, 6, '.', '');
                 $final_weight = $Combination->weight + $Product->weight;
 
                 $taille = '';
@@ -556,10 +562,17 @@ WHERE pac.id_product_attribute=' . (int) $id_product_attribute . '
                         $couleur = $associations[1]['value'];
                     }
                 }
+
+                // Gestion des caractères spéciaux et virgules
                 $taille = Tools::replaceAccentedChars($taille);
-                $taille = Tools::substr(preg_replace('/[^0-9A-Za-z :\.\(\)\?!\+&\,@_-]/i', ' ', $taille), 0, 19);
+                $taille = preg_replace('/[^0-9A-Za-z :\.\,\(\)\?!\+&@_\/-]/i', ' ', $taille);
+                $taille = trim(preg_replace('/\s{2,}/', ' ', $taille));
+                $taille = Tools::substr($taille, 0, 19);
+
                 $couleur = Tools::replaceAccentedChars($couleur);
-                $couleur = Tools::substr(preg_replace('/[^0-9A-Za-z :\.\(\)\?!\+&\,@_-]/i', ' ', $couleur), 0, 19);
+                $couleur = preg_replace('/[^0-9A-Za-z :\.\,\(\)\?!\+&@_\/-]/i', ' ', $couleur);
+                $couleur = trim(preg_replace('/\s{2,}/', ' ', $couleur));
+                $couleur = Tools::substr($couleur, 0, 19);
 
                 $free = $sc->isFreeCodeArt($softwareid, $reference_combination);
 
@@ -590,9 +603,9 @@ WHERE pac.id_product_attribute=' . (int) $id_product_attribute . '
                         null,
                         null,
                         $four,
-                        $Product->$reference_field
+                        $product_parent_reference
                     );
-                    $output .= 'Prestashop to Rezomatic : combinationSync ' . $reference_combination . ' updated\n';
+                    $output .= 'Prestashop to Rezomatic : combinationSync ' . $reference_combination . ' updated (codeDeclinaison: ' . $product_parent_reference . ')\n';
                     $output .= print_r((array) $art, true) . '\n';
                 } else {
                     $art = $sc->createArticle(
@@ -620,13 +633,12 @@ WHERE pac.id_product_attribute=' . (int) $id_product_attribute . '
                         '',
                         '',
                         $four,
-                        $Product->$reference_field
+                        $product_parent_reference
                     );
-                    $output .= 'Prestashop to Rezomatic : combinationSync ' . $reference_combination . ' created\n';
-                    // $output .= parent::l('EAN').' '.$ean.'\n';
-                    // $output .= print_r((array)$Combination, true).'\n';
+                    $output .= 'Prestashop to Rezomatic : combinationSync ' . $reference_combination . ' created (codeDeclinaison: ' . $product_parent_reference . ')\n';
                     $output .= print_r((array) $art, true) . '\n';
                 }
+
                 if ($ean != '') {
                     $free_ean = $sc->isFreeCodeArt($softwareid, $ean);
                     if ($free_ean) {

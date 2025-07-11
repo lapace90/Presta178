@@ -456,8 +456,6 @@ class ProductVccsv extends Vccsv
      *
      * @static
      *
-     * @param mixed $id_product
-     *
      * @return void
      */
     public static function productSync($id_product)
@@ -530,17 +528,25 @@ class ProductVccsv extends Vccsv
                 }
 
                 /**
-                 * Déclinaisons
+                 * Vérification des déclinaisons AVANT l'export du produit parent
                  */
                 $combinations = $product->getAttributeCombinations($id_lang);
-                $id_product_attribute = 0;
-                foreach ($combinations as $c) {
-                    if (!empty($c[$reference_field])) {
-                        $id_product_attribute = (int) $c['id_product_attribute'];
-                        $output .= CombinationVccsv::syncCombination($id_product_attribute);
+                $has_combinations = false;
+
+                if ($combinations && count($combinations) > 0) {
+                    $has_combinations = true;
+
+                    // Export des déclinaisons uniquement
+                    foreach ($combinations as $c) {
+                        if (!empty($c[$reference_field])) {
+                            $id_product_attribute = (int) $c['id_product_attribute'];
+                            $output .= CombinationVccsv::combinationSync($id_product_attribute);
+                        }
                     }
-                }
-                if ($id_product_attribute > 0) {
+
+                    // Pour les produits avec déclinaisons, 
+                    // on n'exporte PAS le produit parent sur Rezomatic
+                    // Son codeArt servira de codeDeclinaison pour ses variations
                     return $output;
                 }
 
@@ -632,64 +638,11 @@ class ProductVccsv extends Vccsv
                         $condition,
                         null,
                         null,
-                        $four,
-                        null, // codeDeclinaison
-                        null, // description  
-                        null, // saison
-                        null, // annee
-                        null, // uniteMesure
-                        null, // tailleContenant
-                        null, // forceSerial
-                        null, // typeSerial
-                        null, // garantie
-                        null, // mp
+                        $four
+
                     );
                     $output .= parent::l('Product') . ' ' . $reference . ' ' . parent::l('created') . ' -> ' . $condition . '\n';
-                    // $output .= parent::l('EAN').' '.$ean.'\n';
-                    // $output .= print_r((array)$product, true).'\n';
                     $output .= print_r((array) $art, true) . '\n';
-
-
-                    // Log creation d'un produit décliné
-                    //
-                    // Prestashop to Rezomatic : combinationSync 0000077063481 created\nArray  ( 
-                    // [codeArt] => 0000077063481 
-                    // [des] => Produit Decline Prestashop 
-                    // [rayon] => 
-                    // [fam] => VETEMENTS 
-                    // [sFam] => ACCUEIL VETEMENTS 
-                    // [paHT] => 25.000000 
-                    // [tTVA] => 20 
-                    // [pvTTC] => 88.490000 
-                    // [poids] => 0 
-                    // [taille] => XL 
-                    // [couleur] => JAUNE 
-                    // [pointFid] => 
-                    // [deee] => 0.000000 
-                    // [prest] => 
-                    // [mini] => 0 
-                    // [maxi] => 0 
-                    // [type] => 
-                    // [avis] => 
-                    // [link] => 
-                    // [dArr] => 
-                    // [pRachat] => 25.000000 
-                    // [neuf] => 1 
-                    // [stock] => 0 
-                    // [visibilite] => -1 
-                    // [four] => 
-                    // [images] => 
-                    // [codeDeclinaison] => 0000077063465 
-                    // [description] => 
-                    // [saison] => 
-                    // [annee] => 
-                    // [uniteMesure] => 
-                    // [tailleContenant] => 
-                    // [forceSerial] => 
-                    // [typeSerial] => 
-                    // [garantie] => 
-                    // [mp] => 
-                    // ) \n
                 }
 
                 if ($ean != '') {
