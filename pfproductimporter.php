@@ -304,8 +304,12 @@ class PfProductImporter extends Module
      */
     public function hookDisplayHeader($params)
     {
-        $output = ProductVccsv::stockSync();
-        $this->mylog($output);
+        // Vérifie si on est sur la page panier
+        $controller = Tools::getValue('controller');
+        if ($controller === 'cart' || $controller === 'order') {
+            $output = $this->hookDisplayShoppingCart($params);
+            $this->mylog($output);
+        }
     }
 
     /**
@@ -1546,9 +1550,13 @@ class PfProductImporter extends Module
                 $reference_field = Configuration::get('PI_PRODUCT_REFERENCE');
                 $product->$reference_field = $reference;
                 // Ecotax
-                $product->ecotax = (isset($tabledata['ecotax'], $feedproduct[$tabledata['ecotax']]))
+                // Récupérer la valeur ecotax pour affichage si besoin
+                $ecotax_value = (isset($tabledata['ecotax'], $feedproduct[$tabledata['ecotax']]))
                     ? ProductVccsv::formatPriceFromWS($feedproduct[$tabledata['ecotax']])
-                    : 0.000000;
+                    : 0;
+
+                // Ecotax PrestaShop à 0 (car déjà incluse dans le prix Rezomatic) 
+                $product->ecotax = 0.000000;
                 // Installation de la taxe liée au produit
                 if (isset($tabledata['id_tax_rules_group'])) {
                     // Default Tax
@@ -1599,19 +1607,12 @@ class PfProductImporter extends Module
 
                 if (isset($tabledata['price'], $feedproduct[$tabledata['price']])) {
                     $prix_brut = $feedproduct[$tabledata['price']];
-
-                    // Récupérer l'ecotax pour la déduire du prix TTC
-                    $ecotax_amount = 0;
-                    if (isset($tabledata['ecotax'], $feedproduct[$tabledata['ecotax']])) {
-                        $ecotax_amount = (float) str_replace([',', '#', 'R', ' '], ['.', '.', '', ''], $feedproduct[$tabledata['ecotax']]);
-                    }
-
                     $prix_clean = str_replace([',', '#', 'R', ' '], ['.', '.', '', ''], $prix_brut);
                     $prix_clean = (float) $prix_clean;
 
                     if ($prix_clean > 0) {
-                        $prix_ttc_sans_ecotax = $prix_clean - $ecotax_amount;
-                        $prix_ht = $prix_ttc_sans_ecotax / 1.20;
+                        // Conversion directe TTC -> HT (pas de soustraction d'ecotax)
+                        $prix_ht = $prix_clean / 1.20;
                         $product->price = number_format($prix_ht, 6, '.', '');
                     } else {
                         $product->price = 0.000000;
@@ -3487,11 +3488,14 @@ class PfProductImporter extends Module
      *
      * @return void
      */
+
     public function hookDisplayShoppingCart($params)
     {
         $allow_cart_stock_update = Configuration::get('SYNC_STOCK_PDV');
+
         if ($allow_cart_stock_update == 1) {
-            $this->stockSyncCron();
+            $output = $this->stockSyncCron();
+            self::mylog('Résultat stockSyncCron : ' . $output);
         }
     }
 }

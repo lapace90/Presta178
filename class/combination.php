@@ -605,7 +605,7 @@ WHERE pac.id_product_attribute=' . (int) $id_product_attribute . '
                         $four,
                         $product_parent_reference
                     );
-                    $output .= 'Prestashop to Rezomatic : combinationSync ' . $reference_combination . ' updated (codeDeclinaison: ' . $product_parent_reference . ')\n';
+                    // $output .= 'Prestashop to Rezomatic : combinationSync ' . $reference_combination . ' updated (codeDeclinaison: ' . $product_parent_reference . ')\n';
                     $output .= print_r((array) $art, true) . '\n';
                 } else {
                     $art = $sc->createArticle(
@@ -635,7 +635,7 @@ WHERE pac.id_product_attribute=' . (int) $id_product_attribute . '
                         $four,
                         $product_parent_reference
                     );
-                    $output .= 'Prestashop to Rezomatic : combinationSync ' . $reference_combination . ' created (codeDeclinaison: ' . $product_parent_reference . ')\n';
+                    // $output .= 'Prestashop to Rezomatic : combinationSync ' . $reference_combination . ' created (codeDeclinaison: ' . $product_parent_reference . ')\n';
                     $output .= print_r((array) $art, true) . '\n';
                 }
 

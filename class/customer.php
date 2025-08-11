@@ -14,41 +14,73 @@ if (!defined('_PS_VERSION_')) {
 }
 
 /**
+ * Classe de synchronisation des clients entre PrestaShop et Rezomatic via SOAP
+ * 
+ * Cette classe gère :
+ * - La synchronisation bidirectionnelle des données clients PrestaShop ↔ Rezomatic
+ * - L'import en masse depuis Rezomatic avec gestion anti-doublons
+ * - La synchronisation des programmes de fidélité Rezomatic
+ * - La création automatique de bons de réduction PrestaShop depuis Rezomatic
+ * 
  * @edit Definima
- * Synchronisation des clients
+ * @version 2.0 - Version améliorée avec anti-doublons et statistiques
+ * @since PrestaShop 1.6+
  */
 class CustomerVccsv extends Vccsv
 {
 
     /**
-     * @var array Statistiques du dernier import pour le cron
+     * Statistiques du dernier import pour le monitoring des tâches cron
+     * 
+     * Permet de suivre les performances et détecter les problèmes d'import
+     * 
+     * @var array Contient : processed, created, updated, errors
+     * @static
      */
     public static $last_import_stats = ['processed' => 0, 'created' => 0, 'updated' => 0, 'errors' => 0];
 
     /**
-     * customerSync function.
+     * Synchronise un client PrestaShop vers Rezomatic via SOAP
+     *
+     * Cette méthode exporte les données d'un client PrestaShop vers le logiciel de gestion Rezomatic.
+     * Elle gère la création ou mise à jour selon l'existence du client dans Rezomatic.
+     *
+     * Processus :
+     * 1. Vérification des permissions d'export
+     * 2. Récupération et nettoyage des données client PrestaShop
+     * 3. Recherche du client dans Rezomatic par email
+     * 4. Mise à jour ou création dans Rezomatic selon le cas
+     * 5. Sauvegarde de la liaison ID PrestaShop/ID Rezomatic
      *
      * @static
-     *
-     * @param mixed $id_customer
-     *
-     * @return void
+     * @param int  $id_customer  ID du client PrestaShop à synchroniser
+     * @param bool $forceExport  Force l'export même si désactivé en config (défaut: false)
+     * @return string Log des opérations effectuées (pour debug/monitoring)
      */
     public static function customerSync($id_customer, $forceExport = false)
     {
+        // Vérification des permissions d'export
         $allow_customerexport = Configuration::get('PI_ALLOW_CUSTOMEREXPORT');
         $softwareid = Configuration::get('PI_SOFTWAREID');
         $output = '';
         if ($forceExport || ($allow_customerexport == 1)) {
             $feedurl = Configuration::get('SYNC_CSV_FEEDURL');
             try {
+                // Initialisation du client SOAP
                 $sc = new SoapClient($feedurl);
+                
+                // Récupération et nettoyage des données client PrestaShop
                 $customer = new Customer($id_customer, ['keep_alive' => false]);
                 $name = $customer->lastname . ' ' . $customer->firstname;
+                // Nettoyage des caractères spéciaux pour éviter les erreurs SOAP
                 $name = preg_replace('/[^0-9A-Za-z :\.\(\)\?!\+&#\,@_-]/i', ' ', $name);
                 $name = trim($name);
+                
+                // Récupération de l'adresse principale du client
                 $id_address = Address::getFirstCustomerAddressId($id_customer);
                 $address = new Address($id_address);
+                
+                // Gestion de la civilité (conversion ID vers texte)
                 $id_gender = $customer->id_gender;
                 $mr = '';
                 if ($id_gender == 1) {
@@ -56,45 +88,57 @@ class CustomerVccsv extends Vccsv
                 } elseif ($id_gender == 2) {
                     $mr = 'Mme';
                 } else {
-                    $mr = 'Mr';
+                    $mr = 'Mr'; // Valeur par défaut
                 }
 
+                // Préparation et nettoyage des données d'adresse
                 $addresse = (empty($address->address1) ? '' : $address->address1);
                 $addresse = Tools::substr(preg_replace('/[^0-9A-Za-z :\.\(\)\?!\+&#\,@_-]/i', ' ', $addresse), 0, 49);
                 $postcode = $address->postcode;
                 $city = (empty($address->city) ? '' : $address->city);
                 $city = Tools::substr(preg_replace('/[^0-9A-Za-z :\.\(\)\?!\+&#\,@_-]/i', ' ', $city), 0, 49);
                 $phone = $address->phone;
+                
+                // Gestion spéciale des emails eBay (remplacés par des emails génériques)
                 $email = $customer->email;
                 if ($email == 'NOSEND-EBAY') {
                     $email = 'emailebay' . $id_customer . '@remplacementebay.com';
                 }
+                
                 $birthday = $customer->birthday;
                 $country = Country::getIsoById($address->id_country);
+                
+                // Préparation des données entreprise (B2B)
                 $raisonSociale = Tools::replaceAccentedChars(empty($customer->company) ? '' : $customer->company);
                 $raisonSociale = preg_replace('/[^0-9A-Za-z :\.\(\)\?!\+&#\,@_-]/i', ' ', $raisonSociale);
                 $siret = (empty($customer->siret) ? '' : $customer->siret);
                 $ape = (empty($customer->ape) ? '' : $customer->ape);
                 $numtva = (empty($address->vat_number) ? '' : $address->vat_number);
                 $newsletter = $customer->newsletter;
+                
                 // Recherche du num client Rezomatic dans la base Prestashop
+                // Méthode commentée : recherche en base locale (ancienne approche)
                 /*$api_customerid = Db::getInstance()->getValue('select api_customerid from ' . _DB_PREFIX_ .
                     'pfi_customer_apisync where system_customerid= ' . (int) $id_customer);*/
                 $api_customerid = false;
-                // Si pas trouvé, on recherche le client par son e-mail
+                
+                // Recherche du client par email dans Rezomatic
                 if (!$api_customerid) {
                     $clients = $sc->getClientsFromEMail($softwareid, $email);
                     if (!isset($clients->client)) {
                         $api_customerid = false;
                     } elseif (is_array($clients->client)) {
+                        // Plusieurs clients trouvés dans Rezomatic : prendre le premier
                         $client = current($clients->client);
                         $api_customerid = $client->num;
                     } else {
+                        
                         $client = $clients->client;
                         $api_customerid = $client->num;
                     }
                 }
-                // Si le num client Rezomatic est connu, on update le client existant
+                
+                // MISE À JOUR : Si le client existe déjà dans Rezomatic
                 if ($api_customerid) {
                     try {
                         $cli = $sc->updateClient(
@@ -103,8 +147,8 @@ class CustomerVccsv extends Vccsv
                             $mr,
                             $name,
                             $addresse,
-                            NULL,
-                            NULL,
+                            NULL,         // Complément d'adresse 1
+                            NULL,         // Complément d'adresse 2
                             $postcode,
                             $city,
                             $phone,
@@ -137,12 +181,14 @@ class CustomerVccsv extends Vccsv
                         $output .= print_r((array) $cli, true) . '\n';
                     } catch (SoapFault $exception) {
                         $output .= Vccsv::logError($exception);
-                        $api_customerid = false;
+                        $api_customerid = false; // Reset pour tenter une création
                     }
                 }
-                // Si pas de num client Rezomatic, on crée le client Rezomatic
+                
+                // CRÉATION : Si le client n'existe pas dans Rezomatic
                 if (!$api_customerid) {
                     try {
+                        // Récupération d'un nouveau numéro client Rezomatic
                         $api_customerid = $sc->getFreeCodeClient($softwareid);
                         $cli = $sc->createClient(
                             $softwareid,
@@ -150,8 +196,8 @@ class CustomerVccsv extends Vccsv
                             $mr,
                             $name,
                             $addresse,
-                            '',
-                            '',
+                            '',           // Complément d'adresse 1
+                            '',           // Complément d'adresse 2
                             $postcode,
                             $city,
                             $phone,
@@ -176,7 +222,7 @@ class CustomerVccsv extends Vccsv
                             '',         // Id Alpha
                             false,      // B2B
                             '',         // Entrepot
-                            true,       // Fidelite
+                            true,       // Fidelite activée par défaut
                             $newsletter,
                             $newsletter
                         );
@@ -187,12 +233,14 @@ class CustomerVccsv extends Vccsv
                         $api_customerid = false;
                     }
                 }
-                // Ajout Liaison ID Prestashop / ID Rezomatic
+                
+                // Sauvegarde de la liaison ID PrestaShop <-> ID Rezomatic
                 if ($api_customerid) {
                     $array_data = [
                         'system_customerid' => (int) $id_customer,
                         'api_customerid' => (int) $api_customerid,
                     ];
+                    // Insertion avec gestion des doublons (ON DUPLICATE KEY)
                     Db::getInstance()->insert('pfi_customer_apisync', $array_data, false, false, Db::ON_DUPLICATE_KEY, true);
                 }
             } catch (SoapFault $exception) {
@@ -204,29 +252,40 @@ class CustomerVccsv extends Vccsv
     }
 
     /**
-     * Recherche fiable d'un client par email (anti-doublons)
+     * Recherche fiable d'un client par email (stratégie anti-doublons)
      * 
-     * @param string $email
+     * Utilise la méthode native PrestaShop pour éviter les incohérences
+     * et garantir l'unicité des emails dans la base
+     * 
+     * @param string $email Email à rechercher
      * @return int|false ID du client ou false si non trouvé
+     * @static
+     * @private
      */
     private static function getCustomerIdByEmail($email)
     {
+        // Validation préalable de l'email
         if (!Validate::isEmail($email)) {
             return false;
         }
         
-        // Utilisation de la méthode native PrestaShop (plus fiable)
+        // Utilisation de la méthode native PrestaShop (plus fiable que les requêtes SQL custom)
         $customer_id = Customer::customerExists($email, true, false);
         
         return $customer_id ? (int)$customer_id : false;
     }
 
     /**
-     * Met à jour un client existant avec vérifications
+     * Met à jour un client existant avec validation des données
      * 
-     * @param int $customer_id
-     * @param array $customerData
-     * @return bool
+     * Applique des règles de validation avant mise à jour pour éviter
+     * la corruption des données (ex: prénom/nom numériques)
+     * 
+     * @param int   $customer_id   ID du client à mettre à jour
+     * @param array $customerData  Données à mettre à jour
+     * @return bool Succès de la mise à jour
+     * @static
+     * @private
      */
     private static function updateExistingCustomer($customer_id, $customerData)
     {
@@ -234,12 +293,14 @@ class CustomerVccsv extends Vccsv
             $customer = new Customer($customer_id);
             
             // Mise à jour seulement si les nouvelles valeurs sont valides
+            // Évite l'écrasement par des données corrompues
             if (!empty($customerData['firstname']) && !is_numeric($customerData['firstname'])) {
                 $customer->firstname = $customerData['firstname'];
             }
             if (!empty($customerData['lastname']) && !is_numeric($customerData['lastname'])) {
                 $customer->lastname = $customerData['lastname'];
             }
+            // Évite les dates par défaut Unix (01/01/1970)
             if (!empty($customerData['birthday']) && $customerData['birthday'] !== '1970-01-01') {
                 $customer->birthday = $customerData['birthday'];
             }
@@ -258,18 +319,24 @@ class CustomerVccsv extends Vccsv
     }
 
     /**
-     * Met à jour l'adresse principale d'un client
+     * Met à jour l'adresse principale d'un client avec validation
      * 
-     * @param int $customer_id
-     * @param array $addressData
-     * @return bool
+     * Localise et met à jour la première adresse du client en appliquant
+     * des règles de validation similaires aux données client
+     * 
+     * @param int   $customer_id  ID du client
+     * @param array $addressData  Données d'adresse à mettre à jour
+     * @return bool Succès de la mise à jour
+     * @static
+     * @private
      */
     private static function updateCustomerAddress($customer_id, $addressData)
     {
         try {
+            // Récupération de l'adresse principale du client
             $id_address = Address::getFirstCustomerAddressId($customer_id);
             if (!$id_address) {
-                return false;
+                return false; // Pas d'adresse trouvée
             }
             
             $address = new Address($id_address);
@@ -294,6 +361,7 @@ class CustomerVccsv extends Vccsv
                 $address->city = $addressData['city'];
             }
             if (!empty($addressData['phone'])) {
+                // Suppression des espaces dans les numéros de téléphone
                 $address->phone = str_replace(' ', '', $addressData['phone']);
             }
             if (!empty($addressData['id_country'])) {
@@ -308,28 +376,30 @@ class CustomerVccsv extends Vccsv
     }
 
     /**
-     * registerDiscountRezomatic function.
+     * Enregistre un bon de réduction provenant du système de fidélité externe
+     *
+     * Crée une règle de panier (CartRule) PrestaShop à partir des données
+     * de fidélité du système externe. Le bon est valable 1 an.
      *
      * @static
-     *
-     * @param mixed $id_customer
-     * @param mixed $amount
-     * @param mixed $name
-     * @param bool $register (default: false)
-     * @param int $id_currency (default: 0)
-     *
-     * @return void
+     * @param int    $id_customer ID du client bénéficiaire
+     * @param float  $amount      Montant de la réduction
+     * @param string $name        Code/nom du bon de réduction
+     * @param int    $id_currency ID de la devise (défaut: 0 = devise par défaut)
+     * @return bool Succès de la création du bon
      */
     public static function registerDiscountRezomatic($id_customer, $amount, $name, $id_currency = 0)
     {
         $cartRule = new CartRule();
         $cartRule->reduction_amount = (float) $amount;
-        $cartRule->reduction_tax = 1;
-        $cartRule->quantity = 1;
-        $cartRule->quantity_per_user = 1;
+        $cartRule->reduction_tax = 1; // Réduction TTC
+        $cartRule->quantity = 1; // Un seul bon disponible
+        $cartRule->quantity_per_user = 1; // Une utilisation par utilisateur
         $cartRule->date_from = date('Y-m-d H:i:s', time());
-        $cartRule->date_to = date('Y-m-d H:i:s', time() + 31536000); // + 1 year
+        $cartRule->date_to = date('Y-m-d H:i:s', time() + 31536000); // Valable 1 an
         $cartRule->code = $name;
+        
+        // Nom du bon dans toutes les langues disponibles
         $languages = Language::getLanguages();
         $array = [];
         foreach ($languages as $language) {
@@ -338,6 +408,7 @@ class CustomerVccsv extends Vccsv
         $cartRule->name = $array;
         $cartRule->id_customer = (int) $id_customer;
         $cartRule->reduction_currency = (int) $id_currency;
+        
         if ($cartRule->add()) {
             return true;
         } else {
@@ -346,14 +417,16 @@ class CustomerVccsv extends Vccsv
     }
 
     /**
-     * loyaltySync function.
+     * Synchronise les points de fidélité et bons de réduction d'un client depuis Rezomatic
+     *
+     * Récupère depuis Rezomatic tous les bons de réduction disponibles
+     * pour un client et les importe dans PrestaShop. Gère également la 
+     * désactivation des bons utilisés ou annulés.
      *
      * @static
-     *
-     * @param mixed $id_customer
-     * @param mixed $email_customer
-     *
-     * @return void
+     * @param int    $id_customer    ID du client PrestaShop
+     * @param string $email_customer Email pour la recherche dans Rezomatic
+     * @return string Log des opérations effectuées
      */
     public static function loyaltySync($id_customer, $email_customer)
     {
@@ -362,17 +435,24 @@ class CustomerVccsv extends Vccsv
         $feedurl = Configuration::get('SYNC_CSV_FEEDURL');
         try {
             $sc = new SoapClient($feedurl, ['keep_alive' => false]);
+            
+            // Recherche du client dans Rezomatic par email
             $clients = $sc->getClientsFromEMail($softwareid, $email_customer);
             if (isset($clients->client) && is_object($clients->client)) {
+                // Récupération des bons de fidélité du client depuis Rezomatic
                 $rm = $sc->getBonsFromClientNum($softwareid, $clients->client->num);
                 if (isset($rm->bons)) {
+                    // Normalisation : transformation en tableau si un seul bon
                     if (is_array($rm->bons)) {
                         $bons = $rm->bons;
                     } else {
                         $bons = [$rm->bons];
                     }
+                    
                     foreach ($bons as $bon) {
+                        // Vérification de l'existence du bon dans PrestaShop
                         if (!CartRule::cartRuleExists($bon->codeBon)) {
+                            // Création du bon seulement s'il est actif (non validé et non annulé)
                             if ($bon->dateValidation == 'N/D' && $bon->dateAnnulation == 'N/D') {
                                 if (self::registerDiscountRezomatic(
                                     $id_customer,
@@ -385,6 +465,7 @@ class CustomerVccsv extends Vccsv
                                 }
                             }
                         } else {
+                            // Désactivation du bon s'il a été utilisé ou annulé dans Rezomatic
                             if ($bon->dateValidation != 'N/D' || $bon->dateAnnulation != 'N/D') {
                                 $sql = ' Update `' . _DB_PREFIX_ . 'cart_rule` set active=0 where code = \'' .
                                     pSQL($bon->codeBon) . '\'';
@@ -407,23 +488,38 @@ class CustomerVccsv extends Vccsv
     }
 
     /**
-     * importCustomer function.
-     * VERSION AMÉLIORÉE : Anti-doublons + statistiques pour le cron
+     * Import en masse des nouveaux clients depuis Rezomatic vers PrestaShop
+     * 
+     * VERSION AMÉLIORÉE avec stratégie anti-doublons multicouches et statistiques détaillées
+     * 
+     * Processus d'import sécurisé :
+     * 1. Récupération des nouveaux clients depuis Rezomatic (dernière synchronisation)
+     * 2. Pour chaque client : recherche anti-doublons par email dans PrestaShop (priorité)
+     * 3. Fallback : recherche par liaison API existante PrestaShop ↔ Rezomatic
+     * 4. Double-check avant création (sécurité concurrence)
+     * 5. Création client + adresse PrestaShop avec validation des données
+     * 6. Statistiques complètes pour monitoring
      *
+     * Stratégie anti-doublons :
+     * - Recherche principale par email dans PrestaShop (méthode native PrestaShop)
+     * - Recherche secondaire par table de liaison API PrestaShop ↔ Rezomatic
+     * - Validation finale avant création
+     * - Gestion des emails invalides/vides
+     * 
      * @static
-     *
-     * @return string
+     * @return string Log détaillé des opérations + statistiques
      */
     public static function importCustomer()
     {
+        // Configuration et initialisation
         $feedurl = Configuration::get('SYNC_CSV_FEEDURL');
         $allow_customerimport = Configuration::get('PI_ALLOW_CUSTOMERIMPORT');
         $customer_id = '';
         $output = '';
         $softwareid = Configuration::get('PI_SOFTWAREID');
-        $timestamp = Configuration::get('PI_LAST_CRON');
+        $timestamp = Configuration::get('PI_LAST_CRON'); // Timestamp de la dernière synchronisation
 
-        // Réinitialisation des statistiques
+        // Réinitialisation des compteurs statistiques pour le monitoring
         $clients_processed = 0;
         $clients_created = 0;
         $clients_updated = 0;
@@ -432,30 +528,35 @@ class CustomerVccsv extends Vccsv
         if ($allow_customerimport == 1) {
             try {
                 $sc = new SoapClient($feedurl, ['keep_alive' => false]);
+                
+                // Récupération des nouveaux clients depuis Rezomatic (dernière synchronisation)
                 $art = $sc->getNewClients($softwareid, $timestamp);
                 
+                // Normalisation de la réponse SOAP de Rezomatic (gestion array/object)
                 if (empty($art->client)) {
                     $clientsrezo = [];
                 } elseif (is_array($art->client)) {
                     $clientsrezo = $art->client;
                 } else {
-                    $clientsrezo = [$art->client];
+                    $clientsrezo = [$art->client]; // Un seul client -> transformation en array
                 }
 
+                // Traitement de chaque client récupéré depuis Rezomatic
                 foreach ($clientsrezo as $item) {
                     $clients_processed++;
                     $default_language_id = (int) Configuration::get('PS_LANG_DEFAULT');
-                    $customerlist = (array) $item;
+                    $customerlist = (array) $item; // Conversion object -> array
 
-                    // Validation email première étape (anti-doublons)
+                    // === VALIDATION EMAIL (première barrière anti-doublons) ===
                     $email = trim($customerlist['mail']);
                     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
                         $output .= parent::l('Invalid email') . ' : ' . $email . "\n";
                         $clients_errors++;
-                        continue;
+                        continue; // Passage au client suivant
                     }
 
-                    // Traitement du genre
+                    // === TRAITEMENT DU GENRE ===
+                    // Conversion des civilités texte vers ID PrestaShop
                     $gender = Tools::strtolower($customerlist['etCiv']);
                     switch ($gender) {
                         case 'mle':
@@ -467,30 +568,35 @@ class CustomerVccsv extends Vccsv
                         case 'miss':
                         case 'madame':
                         case 'femme':
-                            $gender = 2;
+                            $gender = 2; // Femme
                             break;
                         default:
-                            $gender = 1;
+                            $gender = 1; // Homme (valeur par défaut)
                             break;
                     }
 
-                    // Traitement nom/prénom
+                    // === TRAITEMENT NOM/PRÉNOM ===
+                    // Parsing du champ "noPrn"
                     $arrcust = explode(' ', $customerlist['noPrn']);
                     $lastname = preg_replace('/[^A-Za-z ]/i', ' ', array_shift($arrcust));
                     $firstname = preg_replace('/[^A-Za-z ]/i', ' ', implode(' ', $arrcust));
+                    
+                    // Valeurs par défaut pour les champs obligatoires
                     $phone = (empty($customerlist['tel'])) ? '0000000000' : $customerlist['tel'];
                     $ann = (empty($customerlist['ann'])) ? '1970-01-01' : $customerlist['ann'];
-                    $api_customerid = $customerlist['num'];
+                    $api_customerid = $customerlist['num']; // ID dans Rezomatic
                     $newsletter = $customerlist['acceptCommCommerciale'];
 
-                    // STRATÉGIE ANTI-DOUBLONS : Recherche par email d'abord
+                    // === STRATÉGIE ANTI-DOUBLONS MULTICOUCHES ===
+                    
+                    // COUCHE 1 : Recherche par email d'abord (méthode principale)
                     $existing_customer_id = self::getCustomerIdByEmail($email);
                     
                     if ($existing_customer_id) {
-                        // Client existant trouvé par email - Mise à jour
+                        // === CLIENT EXISTANT TROUVÉ PAR EMAIL ===
                         $customer_id = $existing_customer_id;
                         
-                        // Mettre à jour le client
+                        // Mise à jour des données client avec validation
                         $update_success = self::updateExistingCustomer($customer_id, [
                             'firstname' => $firstname,
                             'lastname' => $lastname,
@@ -503,7 +609,7 @@ class CustomerVccsv extends Vccsv
                             $clients_updated++;
                             $output .= 'Customer updated: ' . $email . ' (ID: ' . $customer_id . ')' . "\n";
                             
-                            // Mettre à jour l'adresse
+                            // Mise à jour de l'adresse associée
                             self::updateCustomerAddress($customer_id, [
                                 'firstname' => $firstname,
                                 'lastname' => $lastname,
@@ -520,7 +626,7 @@ class CustomerVccsv extends Vccsv
                             $output .= 'Error updating customer: ' . $email . "\n";
                         }
                         
-                        // Créer/mettre à jour la liaison API
+                        // Création/mise à jour de la liaison API
                         $array_data = [
                             'system_customerid' => (int) $customer_id,
                             'api_customerid' => (int) $api_customerid,
@@ -528,7 +634,8 @@ class CustomerVccsv extends Vccsv
                         Db::getInstance()->insert('pfi_customer_apisync', $array_data, false, false, Db::ON_DUPLICATE_KEY, true);
                         
                     } else {
-                        // Pas de client existant par email - Vérification par API (fallback)
+                        // === COUCHE 2 : Recherche par liaison API (fallback) ===
+                        // Cas où l'email a changé mais le client existe via l'API PrestaShop ↔ Rezomatic
                         $sync_customer_id = Db::getInstance()->getValue(
                             'SELECT system_customerid FROM ' . _DB_PREFIX_ .
                                 'pfi_customer_apisync WHERE api_customerid = ' . (int) $api_customerid .
@@ -556,7 +663,8 @@ class CustomerVccsv extends Vccsv
                             }
                             
                         } else {
-                            // DOUBLE-CHECK avant création (sécurité anti-doublons)
+                            // === COUCHE 3 : Double-check anti-concurrence ===
+                            // Vérification finale avant création (sécurité multi-processus)
                             $double_check = self::getCustomerIdByEmail($email);
                             
                             if ($double_check) {
@@ -565,17 +673,18 @@ class CustomerVccsv extends Vccsv
                                 $clients_updated++;
                                 $output .= 'Customer found during double-check: ' . $email . ' (ID: ' . $customer_id . ')' . "\n";
                             } else {
-                                // Création d'un nouveau client
+                                // === CRÉATION D'UN NOUVEAU CLIENT ===
                                 $customer = new Customer();
+                                // Protection contre les noms numériques (données corrompues)
                                 $customer->firstname = (is_numeric($firstname) ? '-' : $firstname);
                                 $customer->lastname = (is_numeric($lastname) ? '-' : $lastname);
-                                $customer->passwd = '123456789';
-                                $customer->passwd = Tools::hash($customer->passwd);
+                                $customer->passwd = '123456789'; // Mot de passe temporaire
+                                $customer->passwd = Tools::hash($customer->passwd); // Hashage sécurisé
                                 $customer->email = $email;
                                 $customer->birthday = $ann;
-                                $customer->active = 1;
-                                $customer->id_shop = 1;
-                                $customer->id_shop_group = 1;
+                                $customer->active = 1; // Client actif
+                                $customer->id_shop = 1; // Boutique par défaut
+                                $customer->id_shop_group = 1; // Groupe de boutiques par défaut
                                 $customer->id_gender = $gender;
                                 $customer->id_lang = $default_language_id;
                                 $customer->newsletter = $newsletter;
@@ -586,7 +695,7 @@ class CustomerVccsv extends Vccsv
                                     $clients_created++;
                                     $output .= 'Customer created: ' . $email . ' (ID: ' . $customer_id . ')' . "\n";
                                     
-                                    // Créer l'adresse
+                                    // === CRÉATION DE L'ADRESSE ASSOCIÉE ===
                                     $address = new Address();
                                     $address->id_country = Country::getByIso(empty($customerlist['codePays']) ?
                                         Configuration::get('PS_LOCALE_COUNTRY') : $customerlist['codePays']);
@@ -598,7 +707,7 @@ class CustomerVccsv extends Vccsv
                                     $address->address2 = (empty($customerlist['add2']) ? '-' : $customerlist['add2']);
                                     $address->postcode = (empty($customerlist['cp'])) ? '00000' : $customerlist['cp'];
                                     $address->city = (empty($customerlist['ville'])) ? 'default' : $customerlist['ville'];
-                                    $address->phone = str_replace(' ', '', $phone);
+                                    $address->phone = str_replace(' ', '', $phone); // Suppression des espaces
                                     
                                     try {
                                         $address->add();
@@ -609,11 +718,11 @@ class CustomerVccsv extends Vccsv
                                 } catch (Exception $e) {
                                     $clients_errors++;
                                     $output .= 'Customer creation error: ' . $e->getMessage() . "\n";
-                                    continue;
+                                    continue; // Passage au client suivant
                                 }
                             }
                             
-                            // Créer la liaison API
+                            // === SAUVEGARDE DE LA LIAISON API PRESTASHOP ↔ REZOMATIC ===
                             $array_data = [
                                 'system_customerid' => (int) $customer_id,
                                 'api_customerid' => (int) $api_customerid,
@@ -631,7 +740,7 @@ class CustomerVccsv extends Vccsv
             $output .= 'Customer import not allowed' . "\n";
         }
 
-        // Sauvegarder les statistiques pour le cron
+        // === SAUVEGARDE DES STATISTIQUES POUR LE MONITORING ===
         self::$last_import_stats = [
             'processed' => $clients_processed,
             'created' => $clients_created,

@@ -474,6 +474,7 @@ class ProductVccsv extends Vccsv
                 $product = new Product($id_product);
 
                 $name = $product->name[$id_lang];
+                $name = Tools::replaceAccentedChars($name);
                 $name = Tools::substr(trim(preg_replace('/[^0-9A-Za-z :\.\(\)\?!\+&\,@_-]/i', ' ', $name)), 0, 119);
                 $wholesale_price = $product->wholesale_price;
 
