@@ -60,7 +60,7 @@ if (Tools::getIsset('secure_key')) {
                 // DELETE CLIENTS
                 $output .= $pfproductimporter->deleteCustomer();
                 // UPDATE CLIENTS
-                // $output .= CustomerVccsv::importCustomer();
+                $output .= CustomerVccsv::importCustomer();
             }
             
             // EXPORT PRODUITS

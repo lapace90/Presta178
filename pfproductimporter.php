@@ -247,7 +247,7 @@ class PfProductImporter extends Module
         } elseif (Tools::isSubmit('SubmitExportcustomer')) {
             // TODO : Bloc à supprimer ?
             $customerid = Tools::getValue('txtcustomerid');
-            $output = CustomerVccsv::customerSync($customerid);
+            // $output = CustomerVccsv::customerSync($customerid);
 
             return $output;
         } elseif (Tools::isSubmit('SubmitExportproduct')) {
@@ -1035,6 +1035,7 @@ class PfProductImporter extends Module
             'current_index' => AdminController::$currentIndex,
             'module_dir' => $this->_path,
             'cats' => $cats,
+            'cron_url' => Tools::getShopDomainSsl(true) . __PS_BASE_URI__ . 'modules/pfproductimporter/cron_crontab.php?secure_key=' . Configuration::get('PI_SOFTWAREID'),
             'categoryOptionsArray' => $categoryOptionsArray,
             'mappedCategories' => $mappedCategories,
             'module_name' => $this->name,
@@ -1551,12 +1552,11 @@ class PfProductImporter extends Module
                 $product->$reference_field = $reference;
                 // Ecotax
                 // Récupérer la valeur ecotax pour affichage si besoin
-                $ecotax_value = (isset($tabledata['ecotax'], $feedproduct[$tabledata['ecotax']]))
+                $product->ecotax = (isset($tabledata['ecotax'], $feedproduct[$tabledata['ecotax']]))
                     ? ProductVccsv::formatPriceFromWS($feedproduct[$tabledata['ecotax']])
-                    : 0;
+                    : 0.000000;
 
-                // Ecotax PrestaShop à 0 (car déjà incluse dans le prix Rezomatic) 
-                $product->ecotax = 0.000000;
+                // $product->ecotax = 0.000000;
                 // Installation de la taxe liée au produit
                 if (isset($tabledata['id_tax_rules_group'])) {
                     // Default Tax
@@ -1606,19 +1606,14 @@ class PfProductImporter extends Module
                 }
 
                 if (isset($tabledata['price'], $feedproduct[$tabledata['price']])) {
-                    $prix_brut = $feedproduct[$tabledata['price']];
-                    $prix_clean = str_replace([',', '#', 'R', ' '], ['.', '.', '', ''], $prix_brut);
-                    $prix_clean = (float) $prix_clean;
-
-                    if ($prix_clean > 0) {
-                        // Conversion directe TTC -> HT (pas de soustraction d'ecotax)
-                        $prix_ht = $prix_clean / 1.20;
-                        $product->price = number_format($prix_ht, 6, '.', '');
-                    } else {
-                        $product->price = 0.000000;
+                    $prix_ttc = ProductVccsv::formatPriceFromWS($feedproduct[$tabledata['price']]);
+                    $product->price = ProductVccsv::formatPriceFromWS($prix_ttc, 20);
+                    if($product->ecotax > 0) {
+                        $prix_ttc = $prix_ttc - $product->ecotax;
+                        $product->price = ProductVccsv::formatPriceFromWS($prix_ttc, 20);
                     }
                 }
-
+    
                 if (isset($tabledata['quantity'])) {
                     if (isset($feedproduct[$tabledata['quantity']])) {
                         if (is_numeric(trim($feedproduct[$tabledata['quantity']]))) {
@@ -2288,12 +2283,12 @@ class PfProductImporter extends Module
             }
         }
 
-        $allow_customerimport = Configuration::get('PI_ALLOW_CUSTOMERIMPORT');
+        // $allow_customerimport = Configuration::get('PI_ALLOW_CUSTOMERIMPORT');
 
-        if ($allow_customerimport == 1) {
-            // UPDATE CLIENTS (comme avant)
-            $output .= CustomerVccsv::importCustomer();
-        }
+        // if ($allow_customerimport == 1) {
+        //     // UPDATE CLIENTS (comme avant)
+        //     $output .= CustomerVccsv::importCustomer();
+        // }
 
         if ($iscron == 1) {
             echo '-------------------------------------------------<br/>';
@@ -2304,8 +2299,6 @@ class PfProductImporter extends Module
             echo $this->l('No.of Products created') . ' : ' . $linecountadded . '<br/>';
             echo '-------------------------------------------------<br/>';
             echo $this->l('No.of Products updated') . ' : ' . $linecountedited . '<br/>';
-            echo '-------------------------------------------------<br/>';
-            echo $this->l('No.of Customers processed') . ' : ' . CustomerVccsv::$last_import_stats['processed'] . '<br/>';
             echo '-------------------------------------------------<br/>';
 
             /*

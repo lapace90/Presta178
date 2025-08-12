@@ -53,8 +53,7 @@
     <div class="form-group">
         <label class="control-label col-lg-3">Lancer la tâche CRON manuellement</label>
         <div class="col-lg-9">
-            <a href="http://127.0.0.1/presta178/modules/pfproductimporter/cron_crontab.php?secure_key=woocommerce"
-                target="_blank" type="button" class="btn btn-primary" id="run-cron-task">Lancer</a>
+            <a href="{$cron_url}" target="_blank" type="button" class="btn btn-primary" id="run-cron-task">Lancer</a>
             <p class="help-block">
                 Vous pouvez lancer la tâche CRON manuellement pour mettre à jour les produits immédiatement.
             </p>
