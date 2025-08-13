@@ -426,13 +426,13 @@ class ProductVccsv extends Vccsv
                 }
             }
 
-            // $output .= "=== IMPORT LOTS - " . count($lots) . " lots à traiter ===\n";
+            $output .= "=== IMPORT LOTS - " . count($lots) . " lots à traiter ===\n";
 
             foreach ($lots as $lot) {
                 $pack_code = $lot->codeLot;
                 $designation = $lot->des;
 
-                // $output .= "\n--- TRAITEMENT LOT: $pack_code ---\n";
+                $output .= "\n--- TRAITEMENT LOT: $pack_code ---\n";
 
                 // Récupération des articles
                 $products_from_pack = $sc->getLotFromCode($softwareid, $pack_code);
@@ -446,10 +446,10 @@ class ProductVccsv extends Vccsv
                 }
 
                 // DEBUG: Afficher les articles bruts reçus
-                // $output .= "Articles reçus du webservice:\n";
-                // foreach ($articles as $i => $article) {
-                //     $output .= "  [$i] Code: {$article->codeArt}, Prix: {$article->pvTTC}€, Qty: {$article->stock}\n";
-                // }
+                $output .= "Articles reçus du webservice:\n";
+                foreach ($articles as $i => $article) {
+                    $output .= "  [$i] Code: {$article->codeArt}, Prix: {$article->pvTTC}€, Qty: {$article->stock}\n";
+                }
 
                 // Traitement du lot (création ou mise à jour)
                 $existing_product_id = self::getProductIdByRefRezomatic($pack_code);
@@ -504,13 +504,13 @@ class ProductVccsv extends Vccsv
                 $weight = 0;
                 $tauxtva = 0;
 
-                // $output .= "Traitement individuel de chaque article:\n";
+                $output .= "Traitement individuel de chaque article:\n";
 
                 foreach ($articles as $article_index => $article) {
                     $qty = isset($article->stock) ? (int)$article->stock : 1;
                     $prix_unitaire = isset($article->pvTTC) ? (float)$article->pvTTC : 0;
 
-                    // $output .= "  [$article_index] Article: {$article->codeArt} - Prix: {$prix_unitaire}€ x {$qty}\n";
+                    $output .= "  [$article_index] Article: {$article->codeArt} - Prix: {$prix_unitaire}€ x {$qty}\n";
 
                     // Stratégie de recherche multiple
                     $found_product = null;
@@ -563,8 +563,8 @@ class ProductVccsv extends Vccsv
                                 $tauxtva = (float) $article->tTVA; // Garder pour la config fiscale
                             }
 
-                            // $output .= "    SUCCESS - Ajouté (ID: $id_item, Qty: $qty, Stock dispo: $qty_item)\n";
-                            // $output .= "    Prix cumulé: {$price_ttc}€, Stock max possible: {$nbr_pack_possible}\n";
+                            $output .= "    SUCCESS - Ajouté (ID: $id_item, Qty: $qty, Stock dispo: $qty_item)\n";
+                            $output .= "    Prix cumulé: {$price_ttc}€, Stock max possible: {$nbr_pack_possible}\n";
                         } else {
                             $output .= "    ERREUR - Échec de l'ajout au pack\n";
                         }
@@ -577,9 +577,9 @@ class ProductVccsv extends Vccsv
                     }
                 }
 
-                // $output .= "RÉSULTAT: $articles_added/" . count($articles) . " articles ajoutés\n";
-                // $output .= "Prix total TTC calculé: {$price_ttc}€\n";
-                // $output .= "Stock max possible: {$stock} packs\n";
+                $output .= "RÉSULTAT: $articles_added/" . count($articles) . " articles ajoutés\n";
+                $output .= "Prix total TTC calculé: {$price_ttc}€\n";
+                $output .= "Stock max possible: {$stock} packs\n";
 
                 // Finalisation du produit pack
                 $product_pack->id_tax_rules_group = 1;
@@ -600,10 +600,10 @@ class ProductVccsv extends Vccsv
 
                     // Convertir TTC vers HT pour PrestaShop
                     $price_ht = $price_ttc / (1 + $tauxtva / 100);
-                    // $output .= "Conversion TTC->HT: {$price_ttc}€ -> " . number_format($price_ht, 2) . "€ (TVA: {$tauxtva}%)\n";
+                    $output .= "Conversion TTC->HT: {$price_ttc}€ -> " . number_format($price_ht, 2) . "€ (TVA: {$tauxtva}%)\n";
                 } else {
                     $price_ht = $price_ttc; // Pas de TVA
-                    // $output .= "Pas de TVA configurée, prix = {$price_ht}€\n";
+                    $output .= "Pas de TVA configurée, prix = {$price_ht}€\n";
                 }
 
                 $product_pack->wholesale_price = number_format($wholesale_price, 6, '.', '');
@@ -620,7 +620,7 @@ class ProductVccsv extends Vccsv
                     $output .= "ERREUR - Échec de la mise à jour du lot\n";
                 }
 
-                // $output .= "FINAL - Prix HT: " . number_format($price_ht, 2) . "€ (" . number_format($price_ttc, 2) . "€ TTC), Stock: $stock\n";
+                $output .= "FINAL - Prix HT: " . number_format($price_ht, 2) . "€ (" . number_format($price_ttc, 2) . "€ TTC), Stock: $stock\n";
             }
 
             $output .= "\n=== FIN IMPORT LOTS ===\n";

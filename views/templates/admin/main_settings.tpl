@@ -139,7 +139,7 @@
                         {include file="module:pfproductimporter/views/templates/admin/customer_settings.tpl"}
                         <div class="panel-footer">
                             <button type="submit" name="SubmitSaveMainSettings" class="btn btn-default pull-right">
-                                <i class="process-icon-save"></i> Paramètres clients
+                                <i class="process-icon-save"></i> Enregistrer paramètres clients
                             </button>
                         </div>
                     </div>

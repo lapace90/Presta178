@@ -140,6 +140,7 @@ class PfProductImporter extends Module
 
                     // Lancer l'import final
                     $result = $this->finalimport('', '', 0);
+                    ProductVccsv::importLot();
 
                     return $output . $result;
                 } else {
@@ -227,23 +228,23 @@ class PfProductImporter extends Module
                 $output = $this->displayConfirmation($this->l('Paramètres des clients enregistrés avec succès.'));
             }
             return $output;
-        } elseif (Tools::isSubmit('Submitdirectimport')) {
-            // TODO : Bloc à supprimer ?
-            $Submitlimit = 2000;
-            $id = 2;
-            $this->saveTestTmpData($id, $Submitlimit);
-            $this->finalimport($Submitlimit, '');
-        } elseif (Tools::isSubmit('Submitimportfromlastupdated')) {
-            // TODO : Bloc à supprimer ?
-            $Submitlimit = 100;
-            $sync_reference = Db::getInstance()->getValue('select sync_reference from `' . _DB_PREFIX_ .
-                'pfi_import_update`  where feedid = 1 ');
-            if (!$sync_reference || $sync_reference == '00000') {
-                $sync_reference = '';
-            } else {
-                $Submitoffset = $sync_reference;
-            }
-            $this->finalimport($Submitlimit, $Submitoffset);
+            // } elseif (Tools::isSubmit('Submitdirectimport')) {
+            //     // TODO : Bloc à supprimer ?
+            //     $Submitlimit = 2000;
+            //     $id = 2;
+            //     $this->saveTestTmpData($id, $Submitlimit);
+            //     $this->finalimport($Submitlimit, '');
+            // } elseif (Tools::isSubmit('Submitimportfromlastupdated')) {
+            //     // TODO : Bloc à supprimer ?
+            //     $Submitlimit = 100;
+            //     $sync_reference = Db::getInstance()->getValue('select sync_reference from `' . _DB_PREFIX_ .
+            //         'pfi_import_update`  where feedid = 1 ');
+            //     if (!$sync_reference || $sync_reference == '00000') {
+            //         $sync_reference = '';
+            //     } else {
+            //         $Submitoffset = $sync_reference;
+            //     }
+            //     $this->finalimport($Submitlimit, $Submitoffset);
         } elseif (Tools::isSubmit('SubmitExportcustomer')) {
             // TODO : Bloc à supprimer ?
             $customerid = Tools::getValue('txtcustomerid');
@@ -257,26 +258,33 @@ class PfProductImporter extends Module
             $output = $this->renderMainSettingsForm();
 
             return $output;
-        } elseif (Tools::isSubmit('importallproduct')) {
-            // TODO : Bloc à supprimer ?
-            $Submitlimit = '';
-            $id = 2;
-            $this->saveTestTmpData($id, $Submitlimit);
-            $this->finalimport($Submitlimit, '');
-            $output = 'Import complete. ' . $this->importationlink();
+            // } elseif (Tools::isSubmit('importallproduct')) {
+            //     // ✅ 1. DELETE ARTICLES (comme le cron)
+            //     $output = $this->deleteArticle();
 
-            return $output;
-        } elseif (Tools::getValue('simple_import') || Tools::isSubmit('submitfromlast')) {
-            // TODO : Import tache cron ?
-            $Submitlimit = Tools::getValue('Submitlimit');
-            $Submitoffset = Tools::getValue('Submitoffset');
-            if (Tools::isSubmit('submitfromlast')) {
-                $Submitlimit = (int) Tools::getValue('productlimit');
-                $Submitoffset = Tools::getValue('lastref');
-            }
-            $output = $this->finalimport($Submitlimit, $Submitoffset);
+            //     // ✅ 2. UPDATE ARTICLES (comme le cron)
+            //     $this->saveTestTmpData(2, '');
+            //     $output .= $this->finalimport('', '');
 
-            return $output;
+            //     // ✅ 3. UPDATE STOCKS (comme le cron)
+            //     $output .= $this->stockSyncCron();
+
+            //     // ✅ 4. UPDATE LOTS (comme le cron)
+            //     $output .= ProductVccsv::importLot();
+
+            //     $output .= "\nImport complete. " . $this->importationlink();
+            //     return $output;
+            // } elseif (Tools::getValue('simple_import') || Tools::isSubmit('submitfromlast')) {
+            //     // TODO : Import tache cron ?
+            //     $Submitlimit = Tools::getValue('Submitlimit');
+            //     $Submitoffset = Tools::getValue('Submitoffset');
+            //     if (Tools::isSubmit('submitfromlast')) {
+            //         $Submitlimit = (int) Tools::getValue('productlimit');
+            //         $Submitoffset = Tools::getValue('lastref');
+            //     }
+            //     $output = $this->finalimport($Submitlimit, $Submitoffset);
+
+            //     return $output;
         } elseif (Tools::isSubmit('submitgotomain')) {
             // TODO : Import tache cron ?
             $url = AdminController::$currentIndex . '&modulename=' . $this->name . '&configure=' . $this->name .
@@ -1268,7 +1276,8 @@ class PfProductImporter extends Module
         $Submitoffset = '00000';
         $Submitlimit = 0;
 
-        return $this->finalimport($Submitlimit, $Submitoffset, 1);
+        return '';
+        // $this->finalimport($Submitlimit, $Submitoffset, 1);
     }
 
     /**
@@ -1608,12 +1617,12 @@ class PfProductImporter extends Module
                 if (isset($tabledata['price'], $feedproduct[$tabledata['price']])) {
                     $prix_ttc = ProductVccsv::formatPriceFromWS($feedproduct[$tabledata['price']]);
                     $product->price = ProductVccsv::formatPriceFromWS($prix_ttc, 20);
-                    if($product->ecotax > 0) {
+                    if ($product->ecotax > 0) {
                         $prix_ttc = $prix_ttc - $product->ecotax;
                         $product->price = ProductVccsv::formatPriceFromWS($prix_ttc, 20);
                     }
                 }
-    
+
                 if (isset($tabledata['quantity'])) {
                     if (isset($feedproduct[$tabledata['quantity']])) {
                         if (is_numeric(trim($feedproduct[$tabledata['quantity']]))) {
