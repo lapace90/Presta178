@@ -395,15 +395,15 @@ class ProductVccsv extends Vccsv
         }
     }
 
-
     /**
-     * Version corrigée de importLot avec debug détaillé des calculs
+     * importLot function 
+     * 
      */
     public static function importLot()
     {
         $allow_productimport = Configuration::get('PI_ALLOW_PRODUCTIMPORT');
         if ($allow_productimport != 1) {
-            return 'Import de produits non autorisé';
+            return 'Import de lots desactive' . "\n";
         }
 
         $softwareid = Configuration::get('PI_SOFTWAREID');
@@ -412,6 +412,12 @@ class ProductVccsv extends Vccsv
         $id_lang = (int) Configuration::get('PS_LANG_DEFAULT');
         $reference_field = 'reference';
         $languages = Language::getLanguages();
+
+        // Compteurs pour le résumé
+        $lots_traites = 0;
+        $lots_crees = 0;
+        $lots_mis_a_jour = 0;
+        $lots_erreurs = 0;
 
         try {
             $sc = new SoapClient($feedurl, ['keep_alive' => false]);
@@ -426,209 +432,155 @@ class ProductVccsv extends Vccsv
                 }
             }
 
-            $output .= "=== IMPORT LOTS - " . count($lots) . " lots à traiter ===\n";
+            $output .= "=== IMPORT LOTS ===\n";
+            $output .= count($lots) . " lots a traiter\n";
+
+            if (empty($lots)) {
+                $output .= "Aucun lot a importer\n";
+                $output .= "=== FIN IMPORT LOTS ===\n";
+                return $output;
+            }
 
             foreach ($lots as $lot) {
+                $lots_traites++;
                 $pack_code = $lot->codeLot;
                 $designation = $lot->des;
 
-                $output .= "\n--- TRAITEMENT LOT: $pack_code ---\n";
-
-                // Récupération des articles
-                $products_from_pack = $sc->getLotFromCode($softwareid, $pack_code);
-                $articles = [];
-                if (isset($products_from_pack->article)) {
-                    if (is_array($products_from_pack->article)) {
-                        $articles = $products_from_pack->article;
-                    } else {
-                        $articles = [$products_from_pack->article];
+                try {
+                    // Récupération des articles du lot
+                    $products_from_pack = $sc->getLotFromCode($softwareid, $pack_code);
+                    $articles = [];
+                    if (isset($products_from_pack->article)) {
+                        if (is_array($products_from_pack->article)) {
+                            $articles = $products_from_pack->article;
+                        } else {
+                            $articles = [$products_from_pack->article];
+                        }
                     }
-                }
 
-                // DEBUG: Afficher les articles bruts reçus
-                $output .= "Articles reçus du webservice:\n";
-                foreach ($articles as $i => $article) {
-                    $output .= "  [$i] Code: {$article->codeArt}, Prix: {$article->pvTTC}€, Qty: {$article->stock}\n";
-                }
+                    // Vérification si le lot existe déjà
+                    $existing_product_id = self::getProductIdByRefRezomatic($pack_code);
+                    $is_creation = (null == $existing_product_id);
 
-                // Traitement du lot (création ou mise à jour)
-                $existing_product_id = self::getProductIdByRefRezomatic($pack_code);
-                if (null == $existing_product_id) {
-                    // Créer nouveau lot
-                    $product_pack = new Product();
-                    $product_pack->ean13 = '';
-                    $product_pack->upc = '';
-                    $product_pack->ecotax = 0;
-                    $product_pack->minimal_quantity = 1;
-                    $product_pack->default_on = 0;
-                    $product_pack->cache_is_pack = 1;
+                    if ($is_creation) {
+                        // Créer nouveau lot
+                        $product_pack = new Product();
+                        $product_pack->ean13 = '';
+                        $product_pack->upc = '';
+                        $product_pack->ecotax = 0;
+                        $product_pack->minimal_quantity = 1;
+                        $product_pack->default_on = 0;
+                        $product_pack->cache_is_pack = 1;
+                        $product_pack->condition = 'new';
 
+                        $namearray = [];
+                        foreach ($languages as $lang) {
+                            $namearray[$lang['id_lang']] = $designation;
+                        }
+                        $product_pack->name = $namearray;
+                        $product_pack->$reference_field = $pack_code;
+                        $product_pack->wholesale_price = '0.000000';
+                        $product_pack->price = '0.000000';
+                        $product_pack->weight = '0.00';
+
+                        self::setproductlinkRewrite($product_pack, $id_lang, $languages);
+
+                        if ($product_pack->add()) {
+                            $lots_crees++;
+                        } else {
+                            $lots_erreurs++;
+                            $output .= "Erreur création lot: $pack_code\n";
+                            continue;
+                        }
+                    } else {
+                        // Mettre à jour lot existant
+                        Pack::deleteItems($existing_product_id);
+                        $product_pack = new Product($existing_product_id);
+                        $lots_mis_a_jour++;
+                    }
+
+                    // Mise à jour du nom
                     $namearray = [];
                     foreach ($languages as $lang) {
                         $namearray[$lang['id_lang']] = $designation;
                     }
                     $product_pack->name = $namearray;
-                    $product_pack->$reference_field = $pack_code;
-                    $product_pack->wholesale_price = '0.000000';
-                    $product_pack->price = '0.000000';
-                    $product_pack->weight = '0.00';
-                    $product_pack->condition = 'new';
 
-                    self::setproductlinkRewrite($product_pack, $id_lang, $languages);
+                    // Traitement des articles du lot
+                    $articles_ajoutes = 0;
+                    $stock_lot = 10000;
+                    $prix_total = 0;
+                    $poids_total = 0;
+                    $tauxtva = 0;
 
-                    if ($product_pack->add()) {
-                        $output .= "Nouveau lot créé avec ID: " . $product_pack->id . "\n";
-                    } else {
-                        $output .= "ERREUR: Impossible de créer le lot $pack_code\n";
-                        continue;
-                    }
-                } else {
-                    Pack::deleteItems($existing_product_id);
-                    $product_pack = new Product($existing_product_id);
-                    $output .= "Mise à jour lot existant (ID: $existing_product_id)\n";
-                }
+                    foreach ($articles as $article) {
+                        $qty = isset($article->stock) ? (int)$article->stock : 1;
+                        $prix_unitaire = isset($article->pvTTC) ? (float)$article->pvTTC : 0;
 
-                // Mise à jour du nom
-                $namearray = [];
-                foreach ($languages as $lang) {
-                    $namearray[$lang['id_lang']] = $designation;
-                }
-                $product_pack->name = $namearray;
+                        // Recherche du produit
+                        $found_product = self::findProductByReference($article->codeArt);
 
-                // NOUVELLE LOGIQUE: Traiter chaque article individuellement
-                // Ne pas regrouper - chaque ligne du webservice a son importance
-                $articles_added = 0;
-                $stock = 10000;
-                $wholesale_price = 0;
-                $price_ttc = 0; // Garder TTC, ne pas convertir
-                $weight = 0;
-                $tauxtva = 0;
+                        if (!$found_product && isset($article->codeDeclinaison) && !empty($article->codeDeclinaison)) {
+                            $found_product = self::findProductByReference($article->codeDeclinaison);
+                        }
 
-                $output .= "Traitement individuel de chaque article:\n";
-
-                foreach ($articles as $article_index => $article) {
-                    $qty = isset($article->stock) ? (int)$article->stock : 1;
-                    $prix_unitaire = isset($article->pvTTC) ? (float)$article->pvTTC : 0;
-
-                    $output .= "  [$article_index] Article: {$article->codeArt} - Prix: {$prix_unitaire}€ x {$qty}\n";
-
-                    // Stratégie de recherche multiple
-                    $found_product = null;
-
-                    // 1. Chercher avec codeArt
-                    $found_product = self::findProductByReference($article->codeArt);
-
-                    // 2. Si pas trouvé et codeDeclinaison existe, chercher avec codeDeclinaison
-                    if (!$found_product && isset($article->codeDeclinaison) && !empty($article->codeDeclinaison)) {
-                        $found_product = self::findProductByReference($article->codeDeclinaison);
                         if ($found_product) {
-                            $output .= "    Trouvé avec codeDeclinaison: " . $article->codeDeclinaison . "\n";
+                            // Ajouter au pack
+                            $success = self::addItemToPack($product_pack->id, $found_product['id_product'], $qty);
+                            if ($success) {
+                                $articles_ajoutes++;
+                                $prix_total += $prix_unitaire * $qty;
+
+                                // Calculer le stock maximum possible
+                                $product_stock = StockAvailable::getQuantityAvailableByProduct($found_product['id_product']);
+                                if ($product_stock > 0) {
+                                    $stock_possible = floor($product_stock / $qty);
+                                    $stock_lot = min($stock_lot, $stock_possible);
+                                } else {
+                                    $stock_lot = 0;
+                                }
+                            }
                         }
                     }
 
-                    if ($found_product) {
-                        $id_item = $found_product['id_product'];
+                    // Finalisation du produit pack
+                    $product_pack->id_tax_rules_group = 1;
 
-                        // Utiliser la fonction sécurisée pour ajouter l'item
-                        $pack_add_result = self::addItemToPack((int) $product_pack->id, $id_item, $qty);
-
-                        if ($pack_add_result) {
-                            $articles_added++;
-
-                            // Calcul du stock disponible pour ce produit
-                            if ($found_product['id_product_attribute'] > 0) {
-                                $qty_item = StockAvailable::getQuantityAvailableByProduct($id_item, $found_product['id_product_attribute']);
-                            } else {
-                                $qty_item = StockAvailable::getQuantityAvailableByProduct($id_item);
-                            }
-
-                            // Calculer combien de packs on peut faire avec ce produit
-                            $nbr_pack_possible = floor($qty_item / $qty);
-                            if ($nbr_pack_possible < $stock) {
-                                $stock = $nbr_pack_possible;
-                            }
-
-                            // Calculs prix et poids
-                            if (isset($article->paHT)) {
-                                $wholesale_price += (float) $article->paHT * $qty;
-                            }
-
-                            // Garder les prix TTC, ne pas les diviser par la TVA
-                            $price_ttc += $prix_unitaire; // Prix total de cette ligne
-
-                            if (isset($article->poids)) {
-                                $weight += (float) $article->poids * $qty;
-                            }
-                            if (isset($article->tTVA)) {
-                                $tauxtva = (float) $article->tTVA; // Garder pour la config fiscale
-                            }
-
-                            $output .= "    SUCCESS - Ajouté (ID: $id_item, Qty: $qty, Stock dispo: $qty_item)\n";
-                            $output .= "    Prix cumulé: {$price_ttc}€, Stock max possible: {$nbr_pack_possible}\n";
-                        } else {
-                            $output .= "    ERREUR - Échec de l'ajout au pack\n";
-                        }
+                    if ($tauxtva > 0) {
+                        $prix_ht = $prix_total / (1 + $tauxtva / 100);
                     } else {
-                        $output .= "    ERREUR - Article non trouvé: " . $article->codeArt;
-                        if (isset($article->codeDeclinaison) && !empty($article->codeDeclinaison)) {
-                            $output .= " / " . $article->codeDeclinaison;
-                        }
-                        $output .= "\n";
-                    }
-                }
-
-                $output .= "RÉSULTAT: $articles_added/" . count($articles) . " articles ajoutés\n";
-                $output .= "Prix total TTC calculé: {$price_ttc}€\n";
-                $output .= "Stock max possible: {$stock} packs\n";
-
-                // Finalisation du produit pack
-                $product_pack->id_tax_rules_group = 1;
-
-                // Recherche du bon groupe de taxe (pour la config fiscale uniquement)
-                if ($tauxtva > 0) {
-                    $rows = Db::getInstance()->executeS('SELECT rg.`id_tax_rules_group`, t.`rate`
-                    FROM `' . _DB_PREFIX_ . 'tax_rules_group` rg
-                    LEFT JOIN `' . _DB_PREFIX_ . 'tax_rule` tr ON (tr.`id_tax_rules_group` = rg.`id_tax_rules_group`)
-                    LEFT JOIN `' . _DB_PREFIX_ . 'tax` t ON (t.`id_tax` = tr.`id_tax`)
-                    GROUP BY rate');
-                    foreach ($rows as $row) {
-                        if ((float) $row['rate'] == $tauxtva) {
-                            $product_pack->id_tax_rules_group = $row['id_tax_rules_group'];
-                            break;
-                        }
+                        $prix_ht = $prix_total;
                     }
 
-                    // Convertir TTC vers HT pour PrestaShop
-                    $price_ht = $price_ttc / (1 + $tauxtva / 100);
-                    $output .= "Conversion TTC->HT: {$price_ttc}€ -> " . number_format($price_ht, 2) . "€ (TVA: {$tauxtva}%)\n";
-                } else {
-                    $price_ht = $price_ttc; // Pas de TVA
-                    $output .= "Pas de TVA configurée, prix = {$price_ht}€\n";
+                    $product_pack->price = number_format($prix_ht, 6, '.', '');
+                    $product_pack->weight = $poids_total;
+
+                    // Mise à jour du stock
+                    StockAvailable::setQuantity((int) $product_pack->id, 0, $stock_lot);
+
+                    $product_pack->update();
+                } catch (Exception $e) {
+                    $lots_erreurs++;
+                    $output .= "Erreur lot $pack_code: " . $e->getMessage() . "\n";
                 }
-
-                $product_pack->wholesale_price = number_format($wholesale_price, 6, '.', '');
-                $product_pack->price = number_format($price_ht, 6, '.', ''); // Prix HT pour PrestaShop
-                $product_pack->weight = $weight;
-
-                // Mise à jour du stock
-                StockAvailable::setQuantity((int) $product_pack->id, 0, $stock);
-
-                $update_result = $product_pack->update();
-                if ($update_result) {
-                    $output .= "Lot mis à jour avec succès\n";
-                } else {
-                    $output .= "ERREUR - Échec de la mise à jour du lot\n";
-                }
-
-                $output .= "FINAL - Prix HT: " . number_format($price_ht, 2) . "€ (" . number_format($price_ttc, 2) . "€ TTC), Stock: $stock\n";
             }
-
-            $output .= "\n=== FIN IMPORT LOTS ===\n";
         } catch (SoapFault $exception) {
-            $output .= "SOAP ERROR: " . Vccsv::logError($exception);
+            $lots_erreurs++;
+            $output .= "Erreur SOAP: " . Vccsv::logError($exception);
         } catch (Exception $e) {
-            $output .= "GENERAL ERROR: " . $e->getMessage() . "\n";
+            $lots_erreurs++;
+            $output .= "Erreur generale: " . $e->getMessage() . "\n";
         }
+
+        // Résumé final
+        $output .= "--- RESUME ---\n";
+        $output .= "Lots traites: $lots_traites\n";
+        $output .= "Lots crees: $lots_crees\n";
+        $output .= "Lots mis a jour: $lots_mis_a_jour\n";
+        if ($lots_erreurs > 0) {
+            $output .= "Erreurs: $lots_erreurs\n";
+        }
+        $output .= "=== FIN IMPORT LOTS ===\n";
 
         return $output;
     }
