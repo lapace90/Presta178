@@ -81,8 +81,11 @@ class PfProductImporter extends Module
             && $this->registerHook('actionOrderStatusUpdate')
             && $this->registerHook('actionProductUpdate')
             && $this->registerHook('displayShoppingCart')
+            && $this->registerHook('actionDispatcher')
+            && $this->registerHook('displayHeader')
+            // && $this->registerHook('displayBackOfficeHeader')
             // && $this->registerHook('actionProductDelete')
-            // && $this->registerHook('displayBackOfficeHeader') // @edit Definima  Gestion des déclinaisons @deprecated
+            // @edit Definima  Gestion des déclinaisons @deprecated
         ;
     }
 
@@ -313,22 +316,22 @@ class PfProductImporter extends Module
         return $output;
     }
 
-    /**
-     * hookDisplayHeader function.
-     *
-     * @param mixed $params
-     *
-     * @return void
-     */
-    public function hookDisplayHeader($params)
-    {
-        // Vérifie si on est sur la page panier
-        $controller = Tools::getValue('controller');
-        if ($controller === 'cart' || $controller === 'order') {
-            $output = $this->hookDisplayShoppingCart($params);
-            $this->mylog($output);
-        }
-    }
+    // /**
+    //  * hookDisplayHeader function.
+    //  *
+    //  * @param mixed $params
+    //  *
+    //  * @return void
+    //  */
+    // public function hookDisplayHeader($params)
+    // {
+    //     // Vérifie si on est sur la page panier
+    //     $controller = Tools::getValue('controller');
+    //     if ($controller === 'cart' || $controller === 'order') {
+    //         $output = $this->hookDisplayShoppingCart($params);
+    //         $this->mylog($output);
+    //     }
+    // }
 
     /**
      * hookActionProductAdd function.
@@ -377,18 +380,6 @@ class PfProductImporter extends Module
             }
         }
         $this->mylog($output);
-    }
-
-    /**
-     * @edit Definima
-     *
-     * @see $this->hookActionProductUpdate()
-     *
-     * @param $params
-     */
-    public function hookDisplayBackOfficeHeader($params)
-    {
-        // Nothing happen here
     }
 
     /**
@@ -3516,5 +3507,164 @@ class PfProductImporter extends Module
             $output = $this->stockSyncCron();
             self::mylog('Résultat stockSyncCron : ' . $output);
         }
+    }
+
+    /** Utilitaire : calcule l’URL Rezomatic ou '' */
+    public function getRezomaticInvoiceUrl($orderId)
+    {
+        $orderId = (int)$orderId;
+        if ($orderId <= 0) return '';
+
+        try {
+            $rezomaticId = \Db::getInstance()->getValue(
+                'SELECT api_orderid FROM ' . _DB_PREFIX_ . 'pfi_order_apisync WHERE system_orderid=' . (int)$orderId
+            );
+
+            @file_put_contents(
+                _PS_ROOT_DIR_ . '/rezomatic_debug.log',
+                '[' . date('Y-m-d H:i:s') . "] getUrl id_order={$orderId} api_orderid=" . ($rezomaticId ?: 'AUCUN') . "\n",
+                FILE_APPEND
+            );
+
+            if (!$rezomaticId) return '';
+
+            $feedurl    = (string)\Configuration::get('SYNC_CSV_FEEDURL');
+            $softwareId = (string)\Configuration::get('PI_SOFTWAREID');
+            if (!$feedurl || !$softwareId) return '';
+
+            $sc = new \SoapClient($feedurl, [
+                'connection_timeout' => 10,
+                'exceptions' => true,
+                'cache_wsdl' => WSDL_CACHE_NONE,
+                'stream_context' => stream_context_create(['http' => ['timeout' => 15]]),
+            ]);
+            $result = $sc->getCommandesStatuts($softwareId, (int)$rezomaticId);
+
+            $states = [];
+            if (is_object($result) && isset($result->commandeState)) {
+                $states = is_array($result->commandeState) ? $result->commandeState : [$result->commandeState];
+            } elseif (is_array($result)) {
+                $states = $result;
+            }
+            if (!$states) return '';
+
+            usort($states, function ($a, $b) {
+                $ta = isset($a->timestamp) ? strtotime($a->timestamp) : 0;
+                $tb = isset($b->timestamp) ? strtotime($b->timestamp) : 0;
+                return $tb <=> $ta;
+            });
+
+            foreach ($states as $st) {
+                if ((int)($st->statut ?? 0) === 2 && !empty($st->urlInvoice)) {
+                    @file_put_contents(
+                        _PS_ROOT_DIR_ . '/rezomatic_debug.log',
+                        '[' . date('Y-m-d H:i:s') . "] getUrl FOUND {$st->urlInvoice}\n",
+                        FILE_APPEND
+                    );
+                    return (string)$st->urlInvoice;
+                }
+            }
+        } catch (\Throwable $e) {
+            @file_put_contents(
+                _PS_ROOT_DIR_ . '/rezomatic_debug.log',
+                '[' . date('Y-m-d H:i:s') . "] getUrl ERROR " . $e->getMessage() . "\n",
+                FILE_APPEND
+            );
+        }
+        return '';
+    }
+
+    public function hookActionDispatcher($params)
+    {
+        $uri = $_SERVER['REQUEST_URI'] ?? '';
+
+        // ===== BO : Routes Symfony =====
+        if (preg_match('#/admin[^/]*/(?:index\.php/)?sell/orders/(\d+)/generate-invoice-pdf#', $uri, $m)) {
+            $orderId = (int)$m[1];
+
+            if ($orderId > 0) {
+                // Rediriger vers le contrôleur FO qui fonctionne
+                $foUrl = $this->context->shop->getBaseURL(true) .
+                    'index.php?controller=pdf-invoice&id_order=' . $orderId;
+
+                if ($foUrl) {
+                    // ouvrir dans un nouvel onglet + revenir à l’historique
+                    $back = isset($_SERVER['HTTP_REFERER']) && $_SERVER['HTTP_REFERER']
+                        ? (string)$_SERVER['HTTP_REFERER']
+                        : $this->context->link->getPageLink('history', true);
+
+                    header('Content-Type: text/html; charset=utf-8');
+
+                    $invoice = htmlspecialchars($foUrl, ENT_QUOTES, 'UTF-8');
+                    $backUrl = htmlspecialchars($back, ENT_QUOTES, 'UTF-8');
+
+                    echo '<!doctype html><html><head><meta charset="utf-8"><title>Ouverture de la facture…</title></head><body>'
+                        . '<a id="rz" href="' . $invoice . '" target="_blank" rel="noopener">Ouvrir la facture</a>'
+                        . '<script>try{document.getElementById("rz").click();}catch(e){}'
+                        . 'setTimeout(function(){location.replace("' . $backUrl . '");},200);</script>'
+                        . '<noscript><p><a href="' . $invoice . '" target="_blank" rel="noopener">Ouvrir la facture</a></p>'
+                        . '<p>Ensuite revenez sur <a href="' . $backUrl . '">vos commandes</a>.</p></noscript>'
+                        . '</body></html>';
+                    exit;
+                }
+            }
+            return;
+        }
+
+        $isPdfInvoice = false;
+        if (
+            strtolower(Tools::getValue('controller', '')) === 'pdf-invoice' ||
+            strtolower(Tools::getValue('controller', '')) === 'pdfinvoice'
+        ) {
+            $isPdfInvoice = true;
+        }
+
+        if ($isPdfInvoice) {
+            $orderId = (int)Tools::getValue('id_order');
+
+            if ($orderId > 0) {
+                $url = $this->getRezomaticInvoiceUrl($orderId);
+                if ($url) {
+                    header('Location: ' . $url, true, 302);
+                    exit;
+                }
+            }
+        }
+    }
+
+    private function rezomaticFoInvoiceScript(): string
+    {
+        return <<<'HTML'
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  // Forcer l’ouverture des factures FO dans un nouvel onglet
+  document.querySelectorAll('a[href*="controller=pdf-invoice"], a[href$="/pdf-invoice"], a[href*="/pdf-invoice?"]')
+    .forEach(function(a){
+      a.setAttribute('target','_blank');
+      a.setAttribute('rel','noopener');
+    });
+});
+</script>
+HTML;
+    }
+
+    public function hookDisplayHeader($params)
+    {
+        // Vérifie si on est sur la page panier
+        $controller = Tools::getValue('controller');
+        if ($controller === 'cart' || $controller === 'order') {
+            $output = $this->hookDisplayShoppingCart($params);
+            $this->mylog($output);
+        }
+        if (isset($this->context->controller) && $this->context->controller) {
+            $controller = $this->context->controller;
+            if (is_object($controller)) {
+                $controllername = $controller->php_self ?? '';
+                if (is_string($controllername) && in_array($controllername, ['order-confirmation', 'history'])) {
+                    return $this->rezomaticFoInvoiceScript();
+                }
+            }
+        }
+        return '';
     }
 }

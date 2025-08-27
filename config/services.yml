@@ -1,0 +1,10 @@
+services:
+  pfproductimporter.rezomatic_invoice_redirect_listener:
+    class: PfProductImporter\EventSubscriber\RezomaticInvoiceRedirectSubscriber
+    file: '%kernel.project_dir%/modules/pfproductimporter/classes/EventSubscriber/RezomaticInvoiceRedirectSubscriber.php'
+    public: true
+    arguments:
+      - '@doctrine.dbal.default_connection'
+      - '@prestashop.adapter.legacy.configuration'
+    tags:
+      - { name: kernel.event_listener, event: kernel.request, method: onKernelRequest, priority: 8 }
