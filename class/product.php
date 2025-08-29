@@ -805,141 +805,131 @@ class ProductVccsv extends Vccsv
     {
         $allow_productexport = Configuration::get('PI_ALLOW_PRODUCTEXPORT');
         $output = '';
-
         if ($allow_productexport == 1) {
             $id_lang = (int) Configuration::get('PS_LANG_DEFAULT');
-
+            $feedurl = Configuration::get('SYNC_CSV_FEEDURL');
+            $softwareid = Configuration::get('PI_SOFTWAREID');
             // Forcer l'affichage en temps réel pour les crons
             if ($iscron == 1) {
                 flush();
                 ini_set('max_execution_time', 0);
                 ini_set('memory_limit', '2048M');
             }
-
             try {
+                $sc = new SoapClient($feedurl, ['keep_alive' => false]);
                 // Récupérer la date de dernière exécution du cron
                 $last_cron = Configuration::get('PI_LAST_CRON');
-
                 if ($iscron == 1) {
-                    echo '-------------------------------------------------<br/>';
+                    echo '=================================================<br/>';
                     echo 'EXPORT CATALOGUE VERS REZOMATIC<br/>';
-                    echo '-------------------------------------------------<br/>';
+                    echo 'Début : ' . date('Y-m-d H:i:s') . '<br/>';
+                    echo '=================================================<br/>';
                     if ($last_cron) {
-                        echo 'Exporter les produits modifiés depuis le dernier cron<br/>';
-                        echo 'Dernière exécution du cron : ' . $last_cron . '<br/>';
+                        echo "Mode : Export incrémental (depuis $last_cron)<br/>";
                     } else {
-                        echo 'Exporter tous les produits (premier export)<br/>';
+                        echo "Mode : Export complet<br/>";
                     }
                     echo '-------------------------------------------------<br/>';
                 }
-
-                // Construire la requête pour récupérer les produits
-                if ($last_cron) {
-                    // Export des produits modifiés depuis le dernier cron
-                    $products = Db::getInstance()->executeS('
-                    SELECT p.id_product, pl.name, p.date_add, p.date_upd
-                    FROM `' . _DB_PREFIX_ . 'product` p
-                    LEFT JOIN `' . _DB_PREFIX_ . 'product_lang` pl ON (p.id_product = pl.id_product AND pl.id_lang = ' . (int)$id_lang . ')
-                    WHERE p.active = 1 
-                    AND (p.date_add > "' . pSQL($last_cron) . '" OR p.date_upd > "' . pSQL($last_cron) . '")
-                    ORDER BY p.date_upd DESC, p.date_add DESC
-                ');
-                } else {
-                    // Premier export ou pas de date de référence : export complet
-                    $products = Product::getProducts($id_lang, 0, 0, 'id_product', 'asc', false, 0);
+                // Récupérer tous les produits actifs (SANS LIMITE)
+                $sql = 'SELECT p.id_product
+                FROM ' . _DB_PREFIX_ . 'product p
+                WHERE p.active = 1';
+                if ($last_cron && $iscron == 1) {
+                    $sql .= ' AND p.date_upd >= "' . pSQL($last_cron) . '"';
                 }
-
-                $total_products = count($products);
-                $processed = 0;
-                $success = 0;
-                $errors = 0;
-
+                $sql .= ' ORDER BY p.id_product';
+                $products = Db::getInstance()->executeS($sql);
                 if ($iscron == 1) {
-                    echo 'Produits à exporter : ' . $total_products . '<br/>';
+                    echo 'Nombre de produits à traiter : ' . count($products) . '<br/>';
                     echo '-------------------------------------------------<br/>';
                 }
-
-                if ($total_products == 0) {
-                    $msg = 'Aucun produit à exporter';
-                    $output .= $msg . "\n";
+                // Si aucun produit à traiter, retourner un message simple
+                if (empty($products)) {
                     if ($iscron == 1) {
-                        echo $msg . '<br/>';
-                        if ($last_cron) {
-                            echo 'Tous les produits sont à jour depuis le dernier cron<br/>';
-                        }
-                        echo '-------------------------------------------------<br/>';
+                        echo 'Aucun produit à exporter<br/>';
                     }
-                    return $output;
+                    return "Aucun produit a exporter";
                 }
-
-                foreach ($products as $item) {
-                    $processed++;
-
+                $exported_count = 0;
+                $error_count = 0;
+                $processed_count = 0;
+                foreach ($products as $product_data) {
                     try {
-                        $result = ProductVccsv::productSync($item['id_product']);
-
-                        if ($iscron == 1 && $processed % 10 == 0) {
-                            echo 'Progress : ' . $processed . '/' . $total_products . ' products processed<br/>';
+                        $id_product = $product_data['id_product'];
+                        $processed_count++;
+                        $result = self::productSync($id_product);
+                        if (!empty($result)) {
+                            $exported_count++;
+                            $output .= $result;
+                            if ($iscron == 1 && $exported_count % 10 == 0) {
+                                echo "[" . date('H:i:s') . "] Produits exportés : {$exported_count}/{$processed_count}<br/>";
+                                flush();
+                            }
+                        }
+                    } catch (Exception $e) {
+                        $error_count++;
+                        $error_msg = $e->getMessage();
+                        $output .= "Erreur produit {$id_product}: {$error_msg}\n";
+                        if ($iscron == 1 && $error_count % 5 == 0) {
+                            echo "<span style='color:red;'>[ERREUR] {$error_count} erreurs détectées</span><br/>";
                             flush();
                         }
-
-                        if ($result && strpos($result, 'Error') === false) {
-                            $success++;
-                        } else {
-                            $errors++;
-                            $output .= 'Erreur produit ID ' . $item['id_product'] . ': ' . $result . "\n";
-                        }
-
-                        $output .= $result;
-                    } catch (Exception $e) {
-                        $errors++;
-                        $error_msg = 'Exception for product ID ' . $item['id_product'] . ': ' . $e->getMessage();
-                        $output .= $error_msg . "\n";
-
-                        if ($iscron == 1) {
-                            echo $error_msg . '<br/>';
-                        }
                     }
                 }
-            } catch (SoapFault $exception) {
-                $error_msg = Vccsv::logError($exception);
-                $output .= $error_msg;
-                $errors++;
-
                 if ($iscron == 1) {
-                    echo 'SOAP Error : ' . $error_msg . '<br/>';
+                    echo '=================================================<br/>';
+                    echo "EXPORT CATALOGUE TERMINÉ<br/>";
+                    echo "Résumé :<br/>";
+                    echo "- Produits traités : {$processed_count}<br/>";
+                    echo "- Produits exportés : {$exported_count}<br/>";
+                    if ($error_count > 0) {
+                        echo "- <span style='color:red;'>Erreurs : {$error_count}</span><br/>";
+                    }
+                    echo "Fin : " . date('Y-m-d H:i:s') . '<br/>';
+                    echo '=================================================<br/>';
+                    flush();
                 }
-            }
-
-            // Statistiques finales
-            if ($iscron == 1) {
-                echo '-------------------------------------------------<br/>';
-                echo 'Nombre de produits traités : ' . $processed . '<br/>';
-                echo '-------------------------------------------------<br/>';
-                echo 'Nombre de produits exportés avec succès : ' . $success . '<br/>';
-                echo '-------------------------------------------------<br/>';
-                echo 'Nombre de produits en erreur à l\'export : ' . $errors . '<br/>';
-                echo '-------------------------------------------------<br/>';
-                if ($last_cron) {
-                    echo 'Export terminé : Produits modifiés depuis ' . $last_cron . '<br/>';
-                } else {
-                    echo 'Export terminé : Tous les produits<br/>';
+                $output .= "\n=== EXPORT CATALOGUE TERMINÉ ===\n";
+                $output .= "Produits traités : {$processed_count}\n";
+                $output .= "Produits exportés : {$exported_count}\n";
+                if ($error_count > 0) {
+                    $output .= "Erreurs : {$error_count}\n";
                 }
-                echo '-------------------------------------------------<br/>';
+            } catch (SoapFault $soapException) {
+                $soap_error = $soapException->getMessage();
+                $output = "Erreur SOAP : " . $soap_error;
+                if ($iscron == 1) {
+                    echo '=================================================<br/>';
+                    echo "<span style='color:red;'>ERREUR EXPORT CATALOGUE</span><br/>";
+                    echo '-------------------------------------------------<br/>';
+                    echo "Erreur SOAP : " . $soap_error . "<br/>";
+                    echo '=================================================<br/>';
+                }
+            } catch (Exception $e) {
+                $general_error = $e->getMessage();
+                $output = "Erreur générale : " . $general_error;
+                if ($iscron == 1) {
+                    echo '=================================================<br/>';
+                    echo "<span style='color:red;'>ERREUR EXPORT CATALOGUE</span><br/>";
+                    echo '-------------------------------------------------<br/>';
+                    echo "Erreur générale : " . $general_error . "<br/>";
+                    echo '=================================================<br/>';
+                }
             }
         } else {
-            $error_msg = 'Product export not allowed';
-            $output = $error_msg . "\n";
-
+            $output = "Export désactivé dans la configuration (PI_ALLOW_PRODUCTEXPORT)";
             if ($iscron == 1) {
+                echo '=================================================<br/>';
+                echo "<span style='color:red;'>EXPORT CATALOGUE DÉSACTIVÉ</span><br/>";
                 echo '-------------------------------------------------<br/>';
-                echo $error_msg . '<br/>';
-                echo '-------------------------------------------------<br/>';
+                echo $output . "<br/>";
+                echo '=================================================<br/>';
             }
         }
-
         return $output;
     }
+
 
     /**
      * setproductlinkRewrite function.

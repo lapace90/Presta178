@@ -85,7 +85,7 @@ class PfProductImporter extends Module
             && $this->registerHook('displayHeader')
             // && $this->registerHook('displayBackOfficeHeader')
             // && $this->registerHook('actionProductDelete')
-            // @edit Definima  Gestion des déclinaisons @deprecated
+            // @edit Definima  Gestion des declinaisons @deprecated
         ;
     }
 
@@ -120,7 +120,7 @@ class PfProductImporter extends Module
         if (Tools::isSubmit('direct_import_now')) {
             $feedurl = Configuration::get('SYNC_CSV_FEEDURL');
             $softwareid = Configuration::get('PI_SOFTWAREID');
-            $debut = time(); // Timer de début
+            $debut = time(); // Timer de debut
 
             try {
                 $sc = new SoapClient($feedurl, ['keep_alive' => false]);
@@ -130,7 +130,7 @@ class PfProductImporter extends Module
                 if (!empty($art->article)) {
                     $articles = is_array($art->article) ? $art->article : [$art->article];
 
-                    // LOG : Début import manuel
+                    // LOG : Debut import manuel
                     $log_output = '<u>IMPORT MANUEL - ' . count($articles) . ' articles a traiter</u>' . "\n";
 
                     $this->saveTestTmpData(0, 0, $articles);
@@ -176,7 +176,7 @@ class PfProductImporter extends Module
                     // 2. Export all prodcuts ?
                     // $output .= $this->renderExportCatalogForm();
                     $output .= $this->displayConfirmation(
-                        'L\'exportation des produits est activée. Vous pouvez maintenant exporter votre catalogue.'
+                        'L\'exportation des produits est activee. Vous pouvez maintenant exporter votre catalogue.'
                     );
                     $output .= $this->renderMainSettingsForm();
                 } else {
@@ -216,7 +216,7 @@ class PfProductImporter extends Module
             // Export Catalog
             $output = ProductVccsv::exportAll();
             if ($output) {
-                $output = $this->displayConfirmation('Exportation du catalogue terminée.');
+                $output = $this->displayConfirmation('Exportation du catalogue terminee.');
             } else {
                 $output = $this->displayError('Erreur lors de l\'exportation du catalogue : ');
             }
@@ -225,30 +225,30 @@ class PfProductImporter extends Module
             return $output;
         } elseif (Tools::isSubmit('SubmitExportorder')) {
             if ($this->saveMainSettingsForm()) {
-                $output = $this->displayConfirmation('Paramètres des commandes enregistrés avec succès.');
+                $output = $this->displayConfirmation('Parametres des commandes enregistres avec succes.');
             }
             $output .= $this->renderMainSettingsForm();
-            // TODO : Export d'une commande, à supprimer ?
+            // TODO : Export d'une commande, a supprimer ?
             // $order_id = Tools::getValue('txtorderid');
             // $output .= OrderVccsv::orderSync($order_id);
             return $output;
         } elseif (Tools::isSubmit('SubmitImportcustomer')) {
-            // TODO : Bloc à supprimer ?
+            // TODO : Bloc a supprimer ?
             // $output = CustomerVccsv::importCustomer();
             if (!empty($output)) {
                 $output = $this->displayError($output);
             } else {
-                $output = $this->displayConfirmation($this->l('Paramètres des clients enregistrés avec succès.'));
+                $output = $this->displayConfirmation($this->l('Parametres des clients enregistres avec succes.'));
             }
             return $output;
             // } elseif (Tools::isSubmit('Submitdirectimport')) {
-            //     // TODO : Bloc à supprimer ?
+            //     // TODO : Bloc a supprimer ?
             //     $Submitlimit = 2000;
             //     $id = 2;
             //     $this->saveTestTmpData($id, $Submitlimit);
             //     $this->finalimport($Submitlimit, '');
             // } elseif (Tools::isSubmit('Submitimportfromlastupdated')) {
-            //     // TODO : Bloc à supprimer ?
+            //     // TODO : Bloc a supprimer ?
             //     $Submitlimit = 100;
             //     $sync_reference = Db::getInstance()->getValue('select sync_reference from `' . _DB_PREFIX_ .
             //         'pfi_import_update`  where feedid = 1 ');
@@ -259,13 +259,13 @@ class PfProductImporter extends Module
             //     }
             //     $this->finalimport($Submitlimit, $Submitoffset);
         } elseif (Tools::isSubmit('SubmitExportcustomer')) {
-            // TODO : Bloc à supprimer ?
+            // TODO : Bloc a supprimer ?
             $customerid = Tools::getValue('txtcustomerid');
             // $output = CustomerVccsv::customerSync($customerid);
 
             return $output;
         } elseif (Tools::isSubmit('SubmitExportproduct')) {
-            // TODO : Bloc à supprimer ?
+            // TODO : Bloc a supprimer ?
             $productid = Tools::getValue('txtproductid');
             $output = ProductVccsv::productSync($productid);
             $output = $this->renderMainSettingsForm();
@@ -325,7 +325,7 @@ class PfProductImporter extends Module
     //  */
     // public function hookDisplayHeader($params)
     // {
-    //     // Vérifie si on est sur la page panier
+    //     // Verifie si on est sur la page panier
     //     $controller = Tools::getValue('controller');
     //     if ($controller === 'cart' || $controller === 'order') {
     //         $output = $this->hookDisplayShoppingCart($params);
@@ -351,7 +351,7 @@ class PfProductImporter extends Module
      * hookActionProductUpdate function.
      *
      * @edit Definima
-     * La création ou la mise à jour se fait sur un produit déjà existant
+     * La creation ou la mise a jour se fait sur un produit deja existant
      *
      * @param mixed $params
      *
@@ -522,7 +522,7 @@ class PfProductImporter extends Module
                         // quantity
                         $pdv = Configuration::get('SYNC_STOCK_PDV');
                         if (!empty($pdv)) {
-                            // Prise en compte uniquement des stocks du PDV renseigné
+                            // Prise en compte uniquement des stocks du PDV renseigne
                             $pdv = explode(',', $pdv);
                             $pdv = array_map('strtolower', $pdv);
                             $pdv = array_map('trim', $pdv);
@@ -630,7 +630,7 @@ class PfProductImporter extends Module
                         $arr = [$res->stocks];
                     }
 
-                    // Pour chaque article retourné
+                    // Pour chaque article retourne
                     foreach ($arr as $art) {
                         if (is_array($art->stockPdv)) {
                             $stocks = $art->stockPdv;
@@ -663,7 +663,7 @@ class PfProductImporter extends Module
 
                         /**
                          * @edit Definima
-                         * Récupère les déclinaisons qui pourraient avoir cette référence
+                         * Recupere les declinaisons qui pourraient avoir cette reference
                          */
                         $combinations = CombinationVccsv::getCombinationsByReference(
                             $reference,
@@ -711,7 +711,7 @@ class PfProductImporter extends Module
      */
     public function deleteArticle()
     {
-        // Si l'import des produits n'est pas activé, pas de suppression
+        // Si l'import des produits n'est pas active, pas de suppression
         $allow_productimport = Configuration::get('PI_ALLOW_PRODUCTIMPORT');
         if ($allow_productimport != 1) {
             return '';
@@ -742,7 +742,7 @@ class PfProductImporter extends Module
 
                     /**
                      * @edit Definima
-                     * Récupère les déclinaisons qui pourraient avoir cette référence
+                     * Recupere les declinaisons qui pourraient avoir cette reference
                      */
                     $combinations = CombinationVccsv::getCombinationsByReference(
                         $codeArt,
@@ -782,7 +782,7 @@ class PfProductImporter extends Module
     {
         /*
          * @edit Definima
-         * Ne fait rien car on ne veut pas supprimer les clients de PS s'ils sont supprimés de Rezomatic.
+         * Ne fait rien car on ne veut pas supprimer les clients de PS s'ils sont supprimes de Rezomatic.
          */
         return '';
     }
@@ -824,7 +824,7 @@ class PfProductImporter extends Module
      */
     public function renderMainSettingsForm()
     {
-        // Récupérer toutes les configurations
+        // Recuperer toutes les configurations
         $config_values = array(
             'SYNC_CSV_FEEDURL' => Configuration::get('SYNC_CSV_FEEDURL'),
             'PI_SOFTWAREID' => Configuration::get('PI_SOFTWAREID'),
@@ -863,7 +863,7 @@ class PfProductImporter extends Module
         $logs_today_exists = file_exists($logs_today_file);
         $logs_today_size = $logs_today_exists ? round(filesize($logs_today_file) / 1024, 2) : 0;
 
-        // Paramètres de recherche et pagination
+        // Parametres de recherche et pagination
         $search_month = Tools::getValue('search_month', '');
         $search_year = Tools::getValue('search_year', '');
         $current_page = max(1, (int)Tools::getValue('page', 1));
@@ -899,7 +899,7 @@ class PfProductImporter extends Module
                 }
             }
 
-            // Trier par date décroissante
+            // Trier par date decroissante
             usort($all_logs, function ($a, $b) {
                 return strcmp($b['date'], $a['date']);
             });
@@ -918,7 +918,7 @@ class PfProductImporter extends Module
         // Noms des mois
         $months_names = [
             '01' => 'Janvier',
-            '02' => 'Février',
+            '02' => 'Fevrier',
             '03' => 'Mars',
             '04' => 'Avril',
             '05' => 'Mai',
@@ -928,7 +928,7 @@ class PfProductImporter extends Module
             '09' => 'Septembre',
             '10' => 'Octobre',
             '11' => 'Novembre',
-            '12' => 'Décembre'
+            '12' => 'Decembre'
         ];
 
         // Variables pour le mapping
@@ -936,7 +936,7 @@ class PfProductImporter extends Module
         $feedurl = Configuration::get('SYNC_CSV_FEEDURL');
         $fixcategory = Tools::getValue('selfixcategory', '');
 
-        // Créer newproductfields (logique de buildMappingFieldsForm)
+        // Creer newproductfields (logique de buildMappingFieldsForm)
         $productfields = Vccsv::getxiProductFields();
         if (!is_array($productfields)) {
             $productfields = [];
@@ -947,7 +947,7 @@ class PfProductImporter extends Module
         $productfields[] = 'available_date';
         $productfields[] = 'combination_reference';
 
-        // Préparer les variables pour les logs
+        // Preparer les variables pour les logs
         $today = date('Y-m-d');
         $logs_today_url = $this->_path . 'logs_rezomatic' . $today . '.html';
         $logs_today_file = dirname(__FILE__) . '/logs_rezomatic' . $today . '.html';
@@ -990,16 +990,16 @@ class PfProductImporter extends Module
             }
         }
 
-        // Préparer les données pour le mapping si nécessaire
-        // Si on a une URL de feed, récupérer les données pour le mapping
+        // Preparer les donnees pour le mapping si necessaire
+        // Si on a une URL de feed, recuperer les donnees pour le mapping
         $raw_products_arr = array();
         $final_products_arr = array();
 
         if ($feedurl && Tools::strlen($feedurl) > 0) {
-            // Récupérer les données pour le mapping des champs
+            // Recuperer les donnees pour le mapping des champs
             $raw_products_arr = $this->getFieldsFromFeed($feedurl);
 
-            // Récupérer les catégories du feed
+            // Recuperer les categories du feed
             $fam = Vccsv::getXmlfield('id_category_default');
             if (empty($fam)) {
 
@@ -1017,17 +1017,17 @@ class PfProductImporter extends Module
             }
         }
 
-        // Déterminer l'onglet actif
+        // Determiner l'onglet actif
         $active_tab = 'general';
         if (Tools::getValue('active_tab')) {
             $active_tab = Tools::getValue('active_tab');
         }
-        // Récupérer les catégories Prestashop
+        // Recuperer les categories Prestashop
         $cats = Category::getNestedCategories(null, 1, true);
 
         $categoryOptionsArray = $this->buildCategoryOptionsArray($cats, 0);
 
-        // Précalcul des catégories mappées
+        // Precalcul des categories mappees
         $mappedCategories = [];
         if (!empty($final_products_arr)) {
             foreach ($final_products_arr as $category_name) {
@@ -1036,7 +1036,7 @@ class PfProductImporter extends Module
             }
         }
 
-        // Préparer toutes les variables pour le template
+        // Preparer toutes les variables pour le template
         $this->context->smarty->assign(array(
             'token' => Tools::getAdminTokenLite('AdminModules'),
             'configure' => $this->name,
@@ -1088,7 +1088,7 @@ class PfProductImporter extends Module
         return $this->display(__FILE__, 'views/templates/admin/main_settings.tpl');
     }
 
-    // Construire le tableau d'options de catégories
+    // Construire le tableau d'options de categories
     public function buildCategoryOptionsArray($categories, $depth = 0)
     {
         $options = [];
@@ -1146,12 +1146,45 @@ class PfProductImporter extends Module
     }
 
     /**
-     * saveMainSettingsForm function.
+     * Sauvegarder les paramètres principaux avec logging des modifications
      *
-     * @return void
+     * @return bool
      */
     public function saveMainSettingsForm()
     {
+        // Récupérer les anciennes valeurs pour comparaison
+        $oldValues = array(
+            'SYNC_CSV_FEEDURL' => Configuration::get('SYNC_CSV_FEEDURL'),
+            'PI_SOFTWAREID' => Configuration::get('PI_SOFTWAREID'),
+            'PI_CRON_TASK' => Configuration::get('PI_CRON_TASK'),
+            'SYNC_STOCK_PDV' => Configuration::get('SYNC_STOCK_PDV'),
+            'PI_ALLOW_PRODUCTIMPORT' => Configuration::get('PI_ALLOW_PRODUCTIMPORT'),
+            'PI_ALLOW_PRODUCTIMAGEIMPORT' => Configuration::get('PI_ALLOW_PRODUCTIMAGEIMPORT'),
+            'PI_UPDATE_DESIGNATION' => Configuration::get('PI_UPDATE_DESIGNATION'),
+            'PI_ALLOW_PRODUCTSALESIMPORT' => Configuration::get('PI_ALLOW_PRODUCTSALESIMPORT'),
+            'PI_SYNC_SALES_PDV' => Configuration::get('PI_SYNC_SALES_PDV'),
+            'PI_ACTIVE' => Configuration::get('PI_ACTIVE'),
+            'PI_ALLOW_PRODUCTEXPORT' => Configuration::get('PI_ALLOW_PRODUCTEXPORT'),
+            'PI_ALLOW_CATEGORYEXPORT' => Configuration::get('PI_ALLOW_CATEGORYEXPORT'),
+            'PI_PRODUCT_REFERENCE' => Configuration::get('PI_PRODUCT_REFERENCE'),
+            'PI_ALLOW_CUSTOMERIMPORT' => Configuration::get('PI_ALLOW_CUSTOMERIMPORT'),
+            'PI_ALLOW_CUSTOMEREXPORT' => Configuration::get('PI_ALLOW_CUSTOMEREXPORT'),
+            'PI_ALLOW_ORDEREXPORT' => Configuration::get('PI_ALLOW_ORDEREXPORT'),
+            'PI_VALID_ORDER_ONLY' => Configuration::get('PI_VALID_ORDER_ONLY'),
+            'PI_UPDATE_ORDER_STATUS' => Configuration::get('PI_UPDATE_ORDER_STATUS'),
+            'PI_RG1' => Configuration::get('PI_RG1'),
+            'PI_RG2' => Configuration::get('PI_RG2'),
+            'PI_RG3' => Configuration::get('PI_RG3'),
+            'PI_RG4' => Configuration::get('PI_RG4'),
+            'PI_RG5' => Configuration::get('PI_RG5'),
+            'PI_RG6' => Configuration::get('PI_RG6'),
+            'PI_RG7' => Configuration::get('PI_RG7'),
+            'PI_RG8' => Configuration::get('PI_RG8'),
+            'PI_RG9' => Configuration::get('PI_RG9'),
+            'PI_RG10' => Configuration::get('PI_RG10'),
+        );
+
+        // Sauvegarder les nouvelles valeurs (code original)
         Configuration::updateValue('SYNC_CSV_FEEDURL', trim(Tools::getValue('SYNC_CSV_FEEDURL')));
         Configuration::updateValue('PI_SOFTWAREID', Tools::getValue('PI_SOFTWAREID'));
         Configuration::updateValue('PI_CRON_TASK', Tools::getValue('PI_CRON_TASK'));
@@ -1183,7 +1216,83 @@ class PfProductImporter extends Module
         Configuration::updateValue('PI_ADD_TASK', 1);
         Configuration::updateValue('PI_EDIT_TASK', 1);
         Configuration::updateValue('PI_LAST_CRON', date('Y-m-d H:i:s'));
-        // Test TWS Connection
+
+        // Logger les modifications après sauvegarde
+        $newValues = array(
+            'SYNC_CSV_FEEDURL' => trim(Tools::getValue('SYNC_CSV_FEEDURL')),
+            'PI_SOFTWAREID' => Tools::getValue('PI_SOFTWAREID'),
+            'PI_CRON_TASK' => Tools::getValue('PI_CRON_TASK'),
+            'SYNC_STOCK_PDV' => Tools::getValue('SYNC_STOCK_PDV'),
+            'PI_ALLOW_PRODUCTIMPORT' => Tools::getValue('PI_ALLOW_PRODUCTIMPORT'),
+            'PI_ALLOW_PRODUCTIMAGEIMPORT' => Tools::getValue('PI_ALLOW_PRODUCTIMAGEIMPORT'),
+            'PI_UPDATE_DESIGNATION' => Tools::getValue('PI_UPDATE_DESIGNATION'),
+            'PI_ALLOW_PRODUCTSALESIMPORT' => Tools::getValue('PI_ALLOW_PRODUCTSALESIMPORT'),
+            'PI_SYNC_SALES_PDV' => Tools::getValue('PI_SYNC_SALES_PDV'),
+            'PI_ACTIVE' => Tools::getValue('PI_ACTIVE'),
+            'PI_ALLOW_PRODUCTEXPORT' => Tools::getValue('PI_ALLOW_PRODUCTEXPORT'),
+            'PI_ALLOW_CATEGORYEXPORT' => Tools::getValue('PI_ALLOW_CATEGORYEXPORT'),
+            'PI_PRODUCT_REFERENCE' => Tools::getValue('PI_PRODUCT_REFERENCE'),
+            'PI_ALLOW_CUSTOMERIMPORT' => Tools::getValue('PI_ALLOW_CUSTOMERIMPORT'),
+            'PI_ALLOW_CUSTOMEREXPORT' => Tools::getValue('PI_ALLOW_CUSTOMEREXPORT'),
+            'PI_ALLOW_ORDEREXPORT' => Tools::getValue('PI_ALLOW_ORDEREXPORT'),
+            'PI_VALID_ORDER_ONLY' => Tools::getValue('PI_VALID_ORDER_ONLY'),
+            'PI_UPDATE_ORDER_STATUS' => Tools::getValue('PI_UPDATE_ORDER_STATUS'),
+            'PI_RG1' => Tools::getValue('PI_RG1'),
+            'PI_RG2' => Tools::getValue('PI_RG2'),
+            'PI_RG3' => Tools::getValue('PI_RG3'),
+            'PI_RG4' => Tools::getValue('PI_RG4'),
+            'PI_RG5' => Tools::getValue('PI_RG5'),
+            'PI_RG6' => Tools::getValue('PI_RG6'),
+            'PI_RG7' => Tools::getValue('PI_RG7'),
+            'PI_RG8' => Tools::getValue('PI_RG8'),
+            'PI_RG9' => Tools::getValue('PI_RG9'),
+            'PI_RG10' => Tools::getValue('PI_RG10'),
+        );
+
+        // Identifier les changements
+        $changes = array();
+        foreach ($newValues as $key => $newValue) {
+            $oldValue = $oldValues[$key];
+            if ($oldValue != $newValue) {
+                $oldDisplay = $this->formatBooleanValue($oldValue === null || $oldValue === '' ? 'vide' : $oldValue);
+                $newDisplay = $this->formatBooleanValue($newValue === null || $newValue === '' ? 'vide' : $newValue);
+                $changes[] = $key . ": " . $oldDisplay . " -> " . $newDisplay;
+            }
+        }
+
+        // Logger les modifications si il y en a
+        if (!empty($changes)) {
+            // Reconstruire le format avec tableau mais sans infos utilisateur/IP
+            $logMessage = '<h3>CONFIGURATION MODIFIEE</h3>';
+            $logMessage .= '<strong>Date:</strong> ' . date('d/m/Y H:i:s') . '<br><br>';
+
+            $logMessage .= '<table border="1" cellpadding="5" cellspacing="0" style="border-collapse: collapse; width: 40%;">';
+            $logMessage .= '<tr style="background-color: #e6e6e6ff;">
+                            <th>Parametre</th>
+
+                            <th>Nouvelle valeur</th>
+                        </tr>';
+
+            foreach ($newValues as $key => $newValue) {
+                $oldValue = $oldValues[$key];
+                if ($oldValue != $newValue) {
+                    // $oldDisplay = $this->formatBooleanValue($oldValue === null || $oldValue === '' ? 'vide' : $oldValue);
+                    $newDisplay = $this->formatBooleanValue($newValue === null || $newValue === '' ? 'vide' : $newValue);
+
+                    $logMessage .= '<tr>';
+                    $logMessage .= '<td><strong>' . $key . '</strong></td>';
+                    // $logMessage .= '<td>' . htmlspecialchars($oldDisplay) . '</td>';
+                    $logMessage .= '<td>' . htmlspecialchars($newDisplay) . '</td>';
+                    $logMessage .= '</tr>';
+                }
+            }
+
+            $logMessage .= '</table><br>';
+
+            self::mylog($logMessage, true);
+        }
+
+        // Test TWS Connection (code original)
         try {
             if (Tools::file_get_contents(Configuration::get('SYNC_CSV_FEEDURL'))) {
                 $sc = new SoapClient(Configuration::get('SYNC_CSV_FEEDURL'), ['keep_alive' => false]);
@@ -1196,6 +1305,20 @@ class PfProductImporter extends Module
         }
 
         return false;
+    }
+
+    /**
+     * Formate les valeurs booléennes pour un affichage plus lisible
+     */
+    private function formatBooleanValue($value)
+    {
+        if ($value === '1') {
+            return 'Active';
+        } elseif ($value === '0') {
+            return 'Desactive';
+        } else {
+            return $value;
+        }
     }
 
     /**
@@ -1375,7 +1498,7 @@ class PfProductImporter extends Module
         $enableeditproduct = Configuration::get('PI_EDIT_TASK');
         $activeproduct = Configuration::get('PI_ACTIVE');
         $i = 0;
-        $colid = 1; // pour éviter de chercher col0
+        $colid = 1; // pour eviter de chercher col0
         $tabledata = [];
         $result = Db::getInstance(_PS_USE_SQL_SLAVE_)->ExecuteS('select system_field  from `' . _DB_PREFIX_ .
             'pfi_import_feed_fields_csv` where feed_id=' . (int) $feed_id . ' ORDER BY id');
@@ -1401,7 +1524,7 @@ class PfProductImporter extends Module
 
         /**
          * @edit Definima
-         * Liste des déclinaisons, à traiter après la gestion des articles
+         * Liste des declinaisons, a traiter apres la gestion des articles
          */
         $import_images = [];
         $combinations = [];
@@ -1409,10 +1532,10 @@ class PfProductImporter extends Module
 
         $has_combination_base = false;
 
-        // Récupère les infos pour les attributs
+        // Recupere les infos pour les attributs
         $attributes = CombinationVccsv::getAttributes($tabledata);
 
-        // Création du tableau des images à importer
+        // Creation du tableau des images a importer
         $import_images = [];
 
         // $count = $final_products_arr;
@@ -1422,10 +1545,10 @@ class PfProductImporter extends Module
                 $codeArtUpdated[] = $feedproduct[$tabledata[Configuration::get('PI_PRODUCT_REFERENCE')]];
                 /*
              * @edit Definima
-             * Gestion des déclinaisons à traiter après les produits
+             * Gestion des declinaisons a traiter apres les produits
              */
                 // Si codeDeclinaison == reference, c'est le produit de base,
-                // sinon c'est une déclinaison du produit "reference"
+                // sinon c'est une declinaison du produit "reference"
                 if (
                     $feedproduct[$tabledata['combination_reference']] != ''
                     && $feedproduct[$tabledata['combination_reference']] != '0'
@@ -1436,7 +1559,7 @@ class PfProductImporter extends Module
                     continue;
                 }
 
-                // Création du tableau des attributs pour le produit en cours
+                // Creation du tableau des attributs pour le produit en cours
                 foreach ($attributes as $attr_name => $attr_infos) {
                     if (empty($attr_infos['id_attribute_group']) || ($attr_infos['id_attribute_group'] == 0)) {
                         continue;
@@ -1446,8 +1569,8 @@ class PfProductImporter extends Module
                         $feedproduct[$tabledata[$attr_name . '_' . $attr_infos['id_attribute_group']]];
                 }
 
-                // Si le produit de base a la valeur taille ou couleur renseignée,
-                // il faut créer une déclinaison (la principale)
+                // Si le produit de base a la valeur taille ou couleur renseignee,
+                // il faut creer une declinaison (la principale)
                 if ((!empty($attributes['taille']['value'])) || (!empty($attributes['couleur']['value']))) {
                     $tmp_feedproduct = $feedproduct;
                     $tmp_feedproduct[$tabledata['combination_reference']] =
@@ -1565,12 +1688,12 @@ class PfProductImporter extends Module
                 $reference_field = Configuration::get('PI_PRODUCT_REFERENCE');
                 $product->$reference_field = $reference;
                 // Ecotax
-                // Récupérer la valeur ecotax pour affichage si besoin
+                // Recuperer la valeur ecotax pour affichage si besoin
                 $product->ecotax = (isset($tabledata['ecotax'], $feedproduct[$tabledata['ecotax']]))
                     ? ProductVccsv::formatPriceFromWS($feedproduct[$tabledata['ecotax']])
                     : 0.000000;
 
-                // Installation de la taxe liée au produit
+                // Installation de la taxe liee au produit
                 if (isset($tabledata['id_tax_rules_group'])) {
                     // Default Tax
                     $product->id_tax_rules_group = 1;
@@ -1698,7 +1821,7 @@ class PfProductImporter extends Module
                 if ($field_error === true && $lang_field_error === true) {
                     if ($product->id && Product::existsInDatabase((int) $product->id, 'product')) {
                         $linecountedited = $linecountedited + 1;
-                        // ✅ LOG AJOUTÉ
+                        // ✅ LOG AJOUTe
                         $output .= "Produit $reference mis a jour\n";
 
                         $datas = Db::getInstance()->getRow('
@@ -1725,7 +1848,7 @@ class PfProductImporter extends Module
                         if (!$res) {
                             $product->active = $activeproduct;
                             $linecountadded = $linecountadded + 1;
-                            // ✅ LOG AJOUTÉ
+                            // ✅ LOG AJOUTe
                             $output .= "Produit simple $reference cree\n";
 
                             try {
@@ -1786,7 +1909,7 @@ class PfProductImporter extends Module
                     $temp_p_array2[] = $product->$reference_field;
                     // Product supplier 
 
-                    // Vérifier si on garde cette partie ou pas
+                    // Verifier si on garde cette partie ou pas
 
                     // $product->supplier_reference = '';
                     // if (isset($product->id_supplier, $product->supplier_reference)) {
@@ -1814,7 +1937,7 @@ class PfProductImporter extends Module
 
                 //
                 // @edit Definima
-                // Mise à jour de l'impact prix et poids des déclinaisons
+                // Mise a jour de l'impact prix et poids des declinaisons
                 //
                 if (Combination::isFeatureActive()) {
                     CombinationVccsv::updatePriceAndWeight($product, $amount_tax, $default_language_id, $shops);
@@ -1824,7 +1947,7 @@ class PfProductImporter extends Module
                 // quantity
                 $pdv = Configuration::get('SYNC_STOCK_PDV');
                 if (!empty($pdv)) {
-                    // Prise en compte uniquement des stocks du PDV renseigné
+                    // Prise en compte uniquement des stocks du PDV renseigne
                     $softwareid = Configuration::get('PI_SOFTWAREID');
                     $feedurl = Configuration::get('SYNC_CSV_FEEDURL');
                     $pdv = explode(',', $pdv);
@@ -1856,7 +1979,7 @@ class PfProductImporter extends Module
 
                 //
                 // @edit Definima
-                // Ajout des images dans le tableau des images à traiter
+                // Ajout des images dans le tableau des images a traiter
                 //
                 if (Configuration::get('PI_ALLOW_PRODUCTIMAGEIMPORT') == '1') {
                     if (
@@ -1888,7 +2011,7 @@ class PfProductImporter extends Module
 
         /*
      * @edit Definima
-     * Traitement des déclinaisons
+     * Traitement des declinaisons
      */
         if (Combination::isFeatureActive()) {
             if ($this->isPrestashop8()) {
@@ -1901,7 +2024,7 @@ class PfProductImporter extends Module
             $linecounterror_combinations = 0;
             $linecount_combinations = 0;
             if (!empty($combinations)) {
-                // Boucle sur les déclinaisons
+                // Boucle sur les declinaisons
                 foreach ($combinations as $feedproduct) {
                     try {
                         $reference = $feedproduct[$tabledata[Configuration::get('PI_PRODUCT_REFERENCE')]]; // 
@@ -1930,7 +2053,7 @@ class PfProductImporter extends Module
                         }
                         $linecount_combinations = $linecount_combinations + 1;
 
-                        // Récupère le produit de base
+                        // Recupere le produit de base
                         $id_product_base = ProductVccsv::getProductIdByRefRezomatic($product_reference);
 
                         if (!$id_product_base) {
@@ -1959,14 +2082,14 @@ class PfProductImporter extends Module
                             $shops = Shop::getContextListShopID();
                         }
 
-                        // Récupère la déclinaison par défaut
+                        // Recupere la declinaison par defaut
                         $is_combination_base = false;
                         if ($has_combination_base && $has_combination_base == $reference) {
                             $is_combination_base = true;
                         }
                         $has_default_combination = Product::getDefaultAttribute($product->id);
 
-                        // Suppression de la déclinaison par défaut si on traite la déclinaison de base
+                        // Suppression de la declinaison par defaut si on traite la declinaison de base
                         if ($is_combination_base) {
                             $has_default_combination = false;
                             $product->deleteDefaultAttributes();
@@ -1979,7 +2102,7 @@ class PfProductImporter extends Module
 
                         // Pour chacun des attributs
                         foreach ($attributes as $attr_name => $attr_infos) {
-                            // Groupe d'attribut non défini (depuis mapping)
+                            // Groupe d'attribut non defini (depuis mapping)
                             if (empty($attr_infos['id_attribute_group']) || ($attr_infos['id_attribute_group'] == 0)) {
                                 continue;
                             }
@@ -1991,7 +2114,7 @@ class PfProductImporter extends Module
                                 continue;
                             }
 
-                            // Récupère l'attribut
+                            // Recupere l'attribut
                             $infos_attribute = CombinationVccsv::getAttributeByGroupAndValue(
                                 $attr_infos['id_attribute_group'],
                                 $value,
@@ -2003,7 +2126,7 @@ class PfProductImporter extends Module
                             // exit;
 
                             if (!$infos_attribute) {
-                                // Création de l'attribut
+                                // Creation de l'attribut
                                 $obj = new $Attribute();
                                 $obj->id_attribute_group = $attr_infos['id_attribute_group'];
 
@@ -2064,14 +2187,14 @@ class PfProductImporter extends Module
                             $price = ProductVccsv::formatPriceFromWS($price - $product->price);
                             $weight = $weight - $product->weight;
 
-                            // Récupère la déclinaison si elle existe
+                            // Recupere la declinaison si elle existe
                             if (Configuration::get('PI_PRODUCT_REFERENCE') == 'reference') {
                                 $reference_for_combination = $feedproduct[$tabledata['reference']];
                                 $id_product_attribute = Combination::getIdByReference($product->id, $reference_for_combination);
                             } elseif (Configuration::get('PI_PRODUCT_REFERENCE') == 'ean13') {
-                                $reference_for_combination = ''; // Pas de référence auto pour les déclinaisons en mode EAN13
+                                $reference_for_combination = ''; // Pas de reference auto pour les declinaisons en mode EAN13
 
-                                // Chercher la déclinaison existante par EAN13
+                                // Chercher la declinaison existante par EAN13
                                 $id_product_attribute = 0;
                                 $ean13_value = isset($feedproduct[$tabledata['ean13']]) ? $feedproduct[$tabledata['ean13']] : '';
                                 if ($ean13_value) {
@@ -2085,7 +2208,7 @@ class PfProductImporter extends Module
                                 }
                             }
 
-                            // La déclinaison n'existe pas, on crée l'entité
+                            // La declinaison n'existe pas, on cree l'entite
                             if (!$id_product_attribute) {
                                 $id_product_attribute = $product->addCombinationEntity(
                                     $wholesale_price, // wholesale_price
@@ -2133,7 +2256,7 @@ class PfProductImporter extends Module
                                     pSQL($reference) . '", "Declinaison creee pour produit ' . $product_reference . '")');
 
                                 $linecountadded_combinations = $linecountadded_combinations + 1;
-                                // ✅ LOG AJOUTÉ
+                                // ✅ LOG AJOUTe
                                 $output .= "Declinaison $reference creee\n";
                             } else {
                                 // gets all the combinations of this product
@@ -2164,7 +2287,7 @@ class PfProductImporter extends Module
                                         );
 
                                         $id_product_attribute_update = true;
-                                        // ✅ LOG AJOUTÉ
+                                        // ✅ LOG AJOUTe
                                         $output .= "Declinaison $reference mise a jour\n";
                                     }
                                 }
@@ -2198,7 +2321,7 @@ class PfProductImporter extends Module
                             $pdv = Configuration::get('SYNC_STOCK_PDV');
                             $stock_product = 0;
                             if (!empty($pdv)) {
-                                // Prise en compte uniquement des stocks du PDV renseigné
+                                // Prise en compte uniquement des stocks du PDV renseigne
                                 $softwareid = Configuration::get('PI_SOFTWAREID');
                                 $feedurl = Configuration::get('SYNC_CSV_FEEDURL');
                                 $pdv = explode(',', $pdv);
@@ -2230,7 +2353,7 @@ class PfProductImporter extends Module
                                 );
                             }
 
-                            // Ajout des images dans le tableau des images à traiter
+                            // Ajout des images dans le tableau des images a traiter
                             // $this->dump($feedproduct[$tabledata['image_url']], $id_product_attribute);
                             if (Configuration::get('PI_ALLOW_PRODUCTIMAGEIMPORT') == '1') {
                                 if (
@@ -2296,7 +2419,7 @@ class PfProductImporter extends Module
             }
         }
 
-        // ✅ RÉSUMÉ AJOUTÉ AVANT LES LOGS CRON
+        // ✅ ReSUMe AJOUTe AVANT LES LOGS CRON
         $output .= "--- RESUME PRODUITS ---\n";
         $output .= "Produits traites: $linecount\n";
         $output .= "Produits crees: $linecountadded\n";
@@ -2320,7 +2443,7 @@ class PfProductImporter extends Module
 
             /*
          * @edit Definima
-         * Ajout des déclinaisons dans le log
+         * Ajout des declinaisons dans le log
          */
             if (Combination::isFeatureActive()) {
                 echo '-------------------------------------------------<br/>';
@@ -2621,7 +2744,7 @@ class PfProductImporter extends Module
 
     /**
      * @edit Definima
-     * Nécessaire pour self::copyImgNewFormat()
+     * Necessaire pour self::copyImgNewFormat()
      *
      * @param $tgt_width
      * @param $tgt_height
@@ -2777,7 +2900,7 @@ class PfProductImporter extends Module
                 $querycolarr[] = '\'0\'';
             }
 
-            // echo "Valeurs fournies APRÈS: " . count($querycolarr) . "\n";
+            // echo "Valeurs fournies APReS: " . count($querycolarr) . "\n";
 
             $query = 'insert into `' . _DB_PREFIX_ .
                 'pfi_import_tempdata_csv`(' . implode(', ', array_map('pSQL', $t_col)) . ') ' .
@@ -3171,23 +3294,23 @@ class PfProductImporter extends Module
         $feedurl = Configuration::get('SYNC_CSV_FEEDURL');
         $output = '';
 
-        // Réinitialisation des tarifs soldés du site
+        // Reinitialisation des tarifs soldes du site
         Db::getInstance()->execute('DELETE FROM `' . _DB_PREFIX_ .
             'specific_price` WHERE id_specific_price_rule=0');
         $output .= 'Reset tarifs soldes' . "\n";
         try {
             $sc = new SoapClient($feedurl, ['keep_alive' => false]);
-            // Vérification période de soldes
+            // Verification periode de soldes
             if ($sc->isSoldesEnCours($softwareid)) {
                 $output .= 'Soldes en cours';
-                // Récupère les points de vente actifs
+                // Recupere les points de vente actifs
                 $pdv_actifs = $sc->getPdvsActifs($softwareid);
                 if (is_array($pdv_actifs->idPdv)) {
                     $pdvs = $pdv_actifs->idPdv;
                 } else {
                     $pdvs = [$pdv_actifs->idPdv];
                 }
-                // Récupère les pdv configurés dans l'admin PS
+                // Recupere les pdv configures dans l'admin PS
                 $configured_pdv = Configuration::get('PI_SYNC_SALES_PDV');
                 $sync_pdv = [];
                 if ($configured_pdv && trim($configured_pdv) != '') {
@@ -3200,17 +3323,17 @@ class PfProductImporter extends Module
                         continue;
                     }
                     $output .= ' sur ' . $pdv . '\n';
-                    // Récupère tous les articles soldés
+                    // Recupere tous les articles soldes
                     $all_article_solde = $sc->getAllTarifsSoldesFor($softwareid, $pdv);
 
                     if (isset($all_article_solde->tarifsSoldes) && is_array($all_article_solde->tarifsSoldes)) {
                         foreach ($all_article_solde->tarifsSoldes as $art) {
                             $reference = $art->codeArt;
 
-                            // Récupère le produit sur Rezomatic
+                            // Recupere le produit sur Rezomatic
                             // $rz_product = $sc->getArticleFromCode($softwareid, $reference);
 
-                            // Vérifie si c'est une déclinaison d'un produit principal
+                            // Verifie si c'est une declinaison d'un produit principal
                             // $combination = [];
                             // if (isset($rz_product->codeDeclinaison) && $rz_product->codeDeclinaison
                             //     && $rz_product->codeDeclinaison != '0' && $rz_product->codeDeclinaison != $reference) {
@@ -3220,7 +3343,7 @@ class PfProductImporter extends Module
                             );
                             // }
 
-                            // Récupère le produit PS en fonction de la référence
+                            // Recupere le produit PS en fonction de la reference
                             $id_product_attribute = 0;
                             if ($combination) {
                                 $id_product = $combination['id_product'];
@@ -3230,7 +3353,7 @@ class PfProductImporter extends Module
                             }
 
                             if ($id_product && is_numeric($id_product) /* && $rz_product->codeArt == $reference */) {
-                                // Réduction (en %)
+                                // Reduction (en %)
                                 if (empty($art->tarif)) {
                                     $impact_reduc = 0;
                                 } else {
@@ -3242,7 +3365,7 @@ class PfProductImporter extends Module
 
                                 $product = new Product($id_product);
 
-                                // Récupère les shops du produit
+                                // Recupere les shops du produit
                                 $shops = [];
                                 if (isset($product->shop)) {
                                     $product_shop = explode(';', $product->shop);
@@ -3259,7 +3382,7 @@ class PfProductImporter extends Module
                                 }
 
                                 foreach ($shops as $id_shop) {
-                                    // Récupère un potentiel prix spécifique
+                                    // Recupere un potentiel prix specifique
                                     $specific_price = SpecificPrice::getSpecificPrice(
                                         $product->id,
                                         $id_shop,
@@ -3338,7 +3461,7 @@ class PfProductImporter extends Module
 
     /**
      * @edit Definima
-     * Mise à jour status commandes
+     * Mise a jour status commandes
      *
      * @return string
      */
@@ -3350,9 +3473,9 @@ class PfProductImporter extends Module
 
         $sc = new SoapClient($feedurl, ['keep_alive' => false]);
 
-        // Récupère les commandes dont les statuts sont en attente
+        // Recupere les commandes dont les statuts sont en attente
         $get_status_orders = [
-            1, // En attente de paiement par chèque
+            1, // En attente de paiement par cheque
             10, // En attente de virement bancaire
         ];
         if ($this->isPrestashop15()) {
@@ -3360,12 +3483,12 @@ class PfProductImporter extends Module
         }
         if ($this->isPrestashop16()) {
             $get_status_orders[] = 11; // En attente de paiement PayPal
-            $get_status_orders[] = 13; // En attente de réapprovisionnement (non payé)
-            $get_status_orders[] = 14; // En attente de paiement à la livraison
+            $get_status_orders[] = 13; // En attente de reapprovisionnement (non paye)
+            $get_status_orders[] = 14; // En attente de paiement a la livraison
         }
         if ($this->isPrestashop17()) {
-            $get_status_orders[] = 12; // En attente de réapprovisionnement (non payé)
-            $get_status_orders[] = 13; // En attente de paiement à la livraison
+            $get_status_orders[] = 12; // En attente de reapprovisionnement (non paye)
+            $get_status_orders[] = 13; // En attente de paiement a la livraison
         }
 
         // Nouveau status
@@ -3404,11 +3527,11 @@ class PfProductImporter extends Module
 
                 $new_status = 0;
                 switch ($last_state->statut) {
-                    // RZ Terminé => PS En Préparation
+                    // RZ Termine => PS En Preparation
                     case 2:
                         $new_status = $new_status_orders['preparation'];
                         break;
-                    // Annulée
+                    // Annulee
                     case 3:
                     case 4:
                         $new_status = $new_status_orders['annule'];
@@ -3476,7 +3599,7 @@ class PfProductImporter extends Module
 
     /**
      * @edit Definima
-     * Juste un var_dump entouré de pre
+     * Juste un var_dump entoure de pre
      */
     protected function dump()
     {
@@ -3492,7 +3615,7 @@ class PfProductImporter extends Module
 
     /**
      * hookDisplayShoppingCart function.
-     * Mise à jour des stocks à l'affichage du panier
+     * Mise a jour des stocks a l'affichage du panier
      *
      * @param mixed $params
      *
@@ -3505,7 +3628,7 @@ class PfProductImporter extends Module
 
         if ($allow_cart_stock_update == 1) {
             $output = $this->stockSyncCron();
-            self::mylog('Résultat stockSyncCron : ' . $output);
+            self::mylog('Resultat stockSyncCron : ' . $output);
         }
     }
 
@@ -3588,7 +3711,7 @@ class PfProductImporter extends Module
                     'index.php?controller=pdf-invoice&id_order=' . $orderId;
 
                 if ($foUrl) {
-                    // ouvrir dans un nouvel onglet + revenir à l’historique
+                    // ouvrir dans un nouvel onglet + revenir a l’historique
                     $back = isset($_SERVER['HTTP_REFERER']) && $_SERVER['HTTP_REFERER']
                         ? (string)$_SERVER['HTTP_REFERER']
                         : $this->context->link->getPageLink('history', true);
@@ -3650,7 +3773,7 @@ HTML;
 
     public function hookDisplayHeader($params)
     {
-        // Vérifie si on est sur la page panier
+        // Verifie si on est sur la page panier
         $controller = Tools::getValue('controller');
         if ($controller === 'cart' || $controller === 'order') {
             $output = $this->hookDisplayShoppingCart($params);

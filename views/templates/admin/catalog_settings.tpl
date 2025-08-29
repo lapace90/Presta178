@@ -131,9 +131,7 @@
                         <input type="hidden" name="Submitlimit" value="100000" />
                     </form>
                     {include file="module:pfproductimporter/views/templates/hook/importallcatalog.tpl"}
-                    <p class="help-block">
-                        Déclencher manuellement l'import de produits. Cela peut prendre quelques minutes.
-                    </p>
+
                 </div>
             </div>
         </div>
@@ -143,14 +141,34 @@
                 <label class="control-label col-lg-4">Export manuel</label>
                 <div class="col-lg-8">
                     <form action="" method="post">
-                        <input type="submit" name="exportallproduct" class="button btn btn-primary"
-                            value="Démarrer le processus d'export" />
+                        {* <input type="submit" name="exportallproduct" {if !$fields_value.PI_ALLOW_PRODUCTEXPORT}disabled="disabled" {/if} class="button btn btn-primary"
+                            value="Démarrer le processus d'export" /> *}
                     </form>
-                    <p class="help-block">
-                        Déclencher manuellement l'export de produits vers Rezomatic.
-                    </p>
+                    {include file="module:pfproductimporter/views/templates/hook/exportallcatalog.tpl"}
+
                 </div>
             </div>
+        </div>
+
+    </div>
+    <!-- Div dédiée aux barres de progression (pleine largeur) -->
+    <div id="progress-bars-container" style="display: none; margin-top: 20px; width: 100%;">
+        <!-- Barre de progression pour l'import -->
+        <div id="import-progress-section" class="progress-section" style="display: none;">
+            <h4>Progression de l'import</h4>
+            <div class="progress-bar-fullwidth">
+                <div id="import-progress" class="progress-bar-fill-tgm" style="width: 0%;"></div>
+            </div>
+            <p id="import-status" class="progress-text">En attente...</p>
+        </div>
+
+        <!-- Barre de progression pour l'export -->
+        <div id="export-progress-section" class="progress-section" style="display: none;">
+            <h4>Progression de l'export</h4>
+            <div class="progress-bar-fullwidth">
+                <div id="export-progress" class="progress-bar-fill-tgm" style="width: 0%;"></div>
+            </div>
+            <p id="export-status" class="progress-text">En attente...</p>
         </div>
     </div>
 </div>
@@ -198,11 +216,221 @@
     </div>
 </div>
 
+<script>
+    $(document).ready(function() {
+        function startDirectImport() {
+            console.log("Import démarré");
+            $('#confirmModal').fadeOut();
+            $('#progress-bars-container').show();
+            $('#import-progress-section').show();
+            $('#export-progress-section').hide();
+
+            let progress = 0;
+            let interval = setInterval(function() {
+                progress += Math.random() * 15;
+                if (progress >= 100) {
+                    progress = 100;
+                    clearInterval(interval);
+                }
+                $('#import-progress').css('width', progress + '%');
+                $('#import-status').text(progress === 100 ? 'Import terminé avec succès !' :
+                    'Import en cours... (' + Math.round(progress) + '%)');
+                if (progress === 100) {
+                    $('#import-status').css('color', '#28a745');
+                }
+            }, 300);
+        }
+
+        function startDirectExport() {
+            console.log("startDirectExport appelé"); // Ajoute cette ligne
+            $('#confirmExportModal').fadeOut();
+            $('#progress-bars-container').show();
+            $('#export-progress-section').show();
+            $('#import-progress-section').hide();
+
+            let progress = 0;
+            let interval = setInterval(function() {
+                progress += Math.random() * 15;
+                if (progress >= 100) {
+                    progress = 100;
+                    clearInterval(interval);
+                }
+                $('#export-progress').css('width', progress + '%');
+                $('#export-status').text(progress === 100 ? 'Export terminé avec succès !' :
+                    'Export en cours... (' + Math.round(progress) + '%)');
+                if (progress === 100) {
+                    $('#export-status').css('color', '#28a745');
+                }
+            }, 300);
+        }
+
+        // Assure-toi que les fonctions sont bien attachées aux événements
+        window.startDirectImport = startDirectImport;
+        window.startDirectExport = startDirectExport;
+    });
+</script>
+
 <style>
+    /* ===== STYLES GÉNÉRAUX ===== */
     .semi-titre {
         font-weight: bold !important;
         font-size: 1.2rem !important;
         padding: 1.4rem;
         color: #959595 !important;
+    }
+
+    /* ===== STYLES POUR BOUTONS DÉSACTIVÉS ===== */
+    .btn-disabled,
+    .btn:disabled,
+    input[type="button"]:disabled {
+        opacity: 0.5 !important;
+        cursor: not-allowed !important;
+        pointer-events: none !important;
+        background-color: #6c757d !important;
+    }
+
+    /* ===== STYLES POUR MODALES ===== */
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 9999;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .modal-content {
+        background-color: white;
+        border-radius: 8px;
+        max-width: 500px;
+        width: 90%;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .modal-header {
+        padding: 15px 20px;
+        border-bottom: 1px solid #e5e5e5;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .modal-header h2 {
+        margin: 0;
+        font-size: 20px;
+        color: #333;
+    }
+
+    .modal-close {
+        font-size: 28px;
+        font-weight: bold;
+        color: #aaa;
+        cursor: pointer;
+        line-height: 20px;
+    }
+
+    .modal-close:hover,
+    .modal-close:focus {
+        color: #000;
+    }
+
+    .modal-body {
+        padding: 20px;
+    }
+
+    .modal-body p {
+        margin: 10px 0;
+        color: #555;
+    }
+
+    .modal-footer {
+        padding: 15px 20px;
+        border-top: 1px solid #e5e5e5;
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+    }
+
+    .btn {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        transition: background-color 0.3s;
+    }
+
+    .btn-primary {
+        background-color: #007bff;
+        color: white;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+        background-color: #0056b3;
+    }
+
+    .btn-cancel {
+        background-color: #6c757d;
+        color: white;
+    }
+
+    .btn-cancel:hover {
+        background-color: #545b62;
+    }
+
+    /* ===== STYLES POUR BARRES DE PROGRESSION ===== */
+    #progress-bars-container {
+        width: 100%;
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 5px;
+        padding: 15px;
+        margin-top: 20px;
+    }
+
+    .progress-section {
+        width: 100%;
+        margin-bottom: 20px;
+    }
+
+    .progress-section h4 {
+        margin-top: 0;
+        margin-bottom: 10px;
+        color: #495057;
+    }
+
+    /* Barre de progression */
+    .progress-bar-fullwidth {
+        width: 100%;
+        height: 25px;
+        background-color: #e9ecef;
+        border-radius: 5px;
+        overflow: hidden;
+        margin-bottom: 10px;
+    }
+
+    /* Remplissage de la barre de progression */
+    .progress-bar-fill-tgm {
+        display: block;
+        height: 100%;
+        background: #28a745 !important;
+        width: 0%;
+        transition: width 0.3s ease !important;
+        border-radius: 5px !important;
+    }
+
+    .progress-text {
+        margin: 0;
+        font-size: 14px;
+        color: #495057;
+        text-align: center;
+    }
+
+    .progress-text.success {
+        color: #28a745;
     }
 </style>
