@@ -217,57 +217,53 @@
 </div>
 
 <script>
-    $(document).ready(function() {
-        function startDirectImport() {
-            console.log("Import démarré");
-            $('#confirmModal').fadeOut();
-            $('#progress-bars-container').show();
-            $('#import-progress-section').show();
-            $('#export-progress-section').hide();
+    function startDirectImport() {
+        $('#confirmModal').fadeOut();
+        $('#progress-bars-container').show();
+        $('#import-progress-section').show();
+        $('#import-status').text('Import en cours...');
 
-            let progress = 0;
-            let interval = setInterval(function() {
-                progress += Math.random() * 15;
-                if (progress >= 100) {
-                    progress = 100;
-                    clearInterval(interval);
-                }
-                $('#import-progress').css('width', progress + '%');
-                $('#import-status').text(progress === 100 ? 'Import terminé avec succès !' :
-                    'Import en cours... (' + Math.round(progress) + '%)');
-                if (progress === 100) {
-                    $('#import-status').css('color', '#28a745');
-                }
-            }, 300);
-        }
+        $.ajax({
+            url: window.location.href,
+            type: 'POST',
+            data: {
+                'direct_import_now': 1,
+                'token': $('input[name="token"]').val()
+            },
+            // Supprimez temporairement dataType: 'json'
+            success: function(data) {
+                console.log('Réponse brute:', data);
+                console.log('Type de la réponse:', typeof data);
 
-        function startDirectExport() {
-            console.log("startDirectExport appelé"); // Ajoute cette ligne
-            $('#confirmExportModal').fadeOut();
-            $('#progress-bars-container').show();
-            $('#export-progress-section').show();
-            $('#import-progress-section').hide();
+                // Tentez de parser manuellement
+                try {
+                    var jsonData = JSON.parse(data);
+                    console.log('JSON parsé:', jsonData);
 
-            let progress = 0;
-            let interval = setInterval(function() {
-                progress += Math.random() * 15;
-                if (progress >= 100) {
-                    progress = 100;
-                    clearInterval(interval);
+                    if (jsonData.success) {
+                        $('#import-progress').css('width', '100%');
+                        $('#import-status').html(
+                            '<strong>✅ Import terminé !</strong><br>' +
+                            jsonData.stats.produits_crees + ' produits créés<br>' +
+                            jsonData.stats.declinaisons_creees + ' déclinaisons créées<br>' +
+                            'Temps : ' + jsonData.stats.temps_execution
+                        );
+                    } else {
+                        $('#import-status').html('❌ ' + jsonData.message);
+                    }
+                } catch (e) {
+                    console.error('Erreur de parsing JSON:', e);
+                    $('#import-status').html('Import terminé');
+                    $('#import-progress').css('width', '100%');
                 }
-                $('#export-progress').css('width', progress + '%');
-                $('#export-status').text(progress === 100 ? 'Export terminé avec succès !' :
-                    'Export en cours... (' + Math.round(progress) + '%)');
-                if (progress === 100) {
-                    $('#export-status').css('color', '#28a745');
-                }
-            }, 300);
-        }
-
-        // Assure-toi que les fonctions sont bien attachées aux événements
-        window.startDirectImport = startDirectImport;
-        window.startDirectExport = startDirectExport;
-    });
+            },
+            error: function(xhr, status, error) {
+                console.error('Erreur AJAX:', status, error);
+                console.log('Réponse complète:', xhr.responseText);
+                $('#import-status').text('❌ Erreur: ' + status);
+            }
+        });
+    }
 </script>
 
 <style>

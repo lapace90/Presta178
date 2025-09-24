@@ -21,7 +21,7 @@
         </div>
         <div class="modal-footer">
             <button class="btn btn-cancel modal-cancel">Annuler</button>
-            <button type="button" class="btn btn-primary" data-start="export" onclick="startDirectExport()">Exporter</button>
+            <button type="button" class="btn btn-primary" onclick="startDirectExport()">Exporter</button>
         </div>
     </div>
 </div>

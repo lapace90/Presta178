@@ -133,7 +133,7 @@ class PfProductImporter extends Module
                     // LOG : Debut import manuel
                     $log_output = '<u>IMPORT MANUEL - ' . count($articles) . ' articles a traiter</u>' . "\n";
 
-                    $this->saveTestTmpData(0, 0, $articles);
+                    $this->saveTestTmpData(0, $articles);
                     $this->countimport();
 
                     // IMPORT PRODUITS
@@ -1687,11 +1687,25 @@ class PfProductImporter extends Module
                 }
                 $reference_field = Configuration::get('PI_PRODUCT_REFERENCE');
                 $product->$reference_field = $reference;
-                // Ecotax
-                // Recuperer la valeur ecotax pour affichage si besoin
-                $product->ecotax = (isset($tabledata['ecotax'], $feedproduct[$tabledata['ecotax']]))
-                    ? ProductVccsv::formatPriceFromWS($feedproduct[$tabledata['ecotax']])
-                    : 0.000000;
+                // Ecotaxe du feed (TTC) → convertir en HT pour Presta
+                $deeeTTC = (isset($tabledata['ecotax'], $feedproduct[$tabledata['ecotax']]))
+                    ? (float) str_replace(['#', 'R', ', '], ['', '.', '.'], (string)$feedproduct[$tabledata['ecotax']])
+                    : 0.0;
+
+                $ecoRG   = (int) Configuration::get('PS_ECOTAX_TAX_RULES_GROUP_ID');
+                $ecoRate = 0.0;
+                if ($ecoRG) {
+                    $ecoRate = (float) Db::getInstance()->getValue(
+                        'SELECT t.rate
+         FROM ' . _DB_PREFIX_ . 'tax_rule tr
+         JOIN ' . _DB_PREFIX_ . 'tax t ON t.id_tax = tr.id_tax
+         WHERE tr.id_tax_rules_group=' . (int)$ecoRG . '
+         ORDER BY t.rate DESC'
+                    );
+                }
+                $ecoHT = $deeeTTC > 0 ? $deeeTTC / (1 + $ecoRate / 100) : 0.0;
+                $product->ecotax = number_format($ecoHT, 6, '.', '');
+
 
                 // Installation de la taxe liee au produit
                 if (isset($tabledata['id_tax_rules_group'])) {
@@ -1742,11 +1756,18 @@ class PfProductImporter extends Module
                 }
 
                 if (isset($tabledata['price'], $feedproduct[$tabledata['price']])) {
-                    $prix_ttc = ProductVccsv::formatPriceFromWS($feedproduct[$tabledata['price']]);
-                    $product->price = ProductVccsv::formatPriceFromWS($prix_ttc, 20);
-                    if ($product->ecotax > 0) {
-                        $prix_ttc = $prix_ttc - $product->ecotax;
-                        $product->price = ProductVccsv::formatPriceFromWS($prix_ttc, 20);
+                    if (isset($tabledata['price'], $feedproduct[$tabledata['price']])) {
+                        // taux réel si mappé, sinon défaut 20
+                        $amount_tax = isset($tabledata['id_tax_rules_group'])
+                            ? (float)$feedproduct[$tabledata['id_tax_rules_group']]
+                            : 20.0;
+
+                        // HT base attendu par Presta = (pvTTC - deeeTTC) / (1 + TVA)
+                        $product->price = ProductVccsv::formatPriceFromWS(
+                            $feedproduct[$tabledata['price']],   // pvTTC du feed
+                            $amount_tax,                         // TVA du feed
+                            $deeeTTC                             // ⚠️ DEEE **TTC** du feed (pas le HT)
+                        );
                     }
                 }
 
@@ -1821,7 +1842,7 @@ class PfProductImporter extends Module
                 if ($field_error === true && $lang_field_error === true) {
                     if ($product->id && Product::existsInDatabase((int) $product->id, 'product')) {
                         $linecountedited = $linecountedited + 1;
-                        // ✅ LOG AJOUTe
+
                         $output .= "Produit $reference mis a jour\n";
 
                         $datas = Db::getInstance()->getRow('
@@ -1848,7 +1869,7 @@ class PfProductImporter extends Module
                         if (!$res) {
                             $product->active = $activeproduct;
                             $linecountadded = $linecountadded + 1;
-                            // ✅ LOG AJOUTe
+
                             $output .= "Produit simple $reference cree\n";
 
                             try {
@@ -2176,15 +2197,46 @@ class PfProductImporter extends Module
                             $weight = isset($feedproduct[$tabledata['weight']])
                                 ? (float) $feedproduct[$tabledata['weight']]
                                 : 0;
-                            $price = isset($feedproduct[$tabledata['price']])
-                                ? ProductVccsv::formatPriceFromWS($feedproduct[$tabledata['price']], $amount_tax)
-                                : 0.000000;
-                            $ecotax = isset($feedproduct[$tabledata['ecotax']])
-                                ? ProductVccsv::formatPriceFromWS($feedproduct[$tabledata['ecotax']])
+                            $amount_tax = isset($tabledata['id_tax_rules_group'])
+                                ? (float)$feedproduct[$tabledata['id_tax_rules_group']]
+                                : 20.0;
+
+                            $ecotax = isset($tabledata['ecotax'])
+                                ? ProductVccsv::formatPriceFromWS($feedproduct[$tabledata['ecotax']]) // normalisation simple
                                 : 0.000000;
 
-                            // Impacts
-                            $price = ProductVccsv::formatPriceFromWS($price - $product->price);
+                            // Prix HT de la déclinaison (sans DEEE), aligné Presta
+                            $priceHTDecli = isset($tabledata['price'])
+                                ? (float) ProductVccsv::formatPriceFromWS(
+                                    $feedproduct[$tabledata['price']],  // pvTTC de la déclinaison
+                                    $amount_tax,
+                                    $ecotax                             // deee TTC de la déclinaison
+                                )
+                                : 0.000000;
+
+                            // Impact HT = HT_declinaison - HT_base_produit
+                            $impactHT = (float) number_format(($priceHTDecli - (float)$product->price), 6, '.', '');
+
+                            // puis :
+                            $id_product_attribute = $product->addCombinationEntity(
+                                $wholesale_price,
+                                $impactHT,                // <-- impact HT correct
+                                $weight - $product->weight,
+                                0,
+                                Configuration::get('PS_USE_ECOTAX') ? (float)$ecotax : 0,
+                                $feedproduct[$tabledata['quantity']],
+                                [],
+                                $reference_for_combination,
+                                0,
+                                isset($tabledata['ean13']) && isset($feedproduct[$tabledata['ean13']]) ? $feedproduct[$tabledata['ean13']] : '',
+                                $has_default_combination ? 0 : 1,
+                                null,
+                                isset($tabledata['upc']) && isset($feedproduct[$tabledata['upc']]) ? $feedproduct[$tabledata['upc']] : null,
+                                1,
+                                $shops,
+                                null
+                            );
+
                             $weight = $weight - $product->weight;
 
                             // Recupere la declinaison si elle existe
@@ -2256,7 +2308,6 @@ class PfProductImporter extends Module
                                     pSQL($reference) . '", "Declinaison creee pour produit ' . $product_reference . '")');
 
                                 $linecountadded_combinations = $linecountadded_combinations + 1;
-                                // ✅ LOG AJOUTe
                                 $output .= "Declinaison $reference creee\n";
                             } else {
                                 // gets all the combinations of this product
@@ -2285,12 +2336,10 @@ class PfProductImporter extends Module
                                             null, // update_all_fields
                                             $shops // id_shop_list
                                         );
-
                                         $id_product_attribute_update = true;
-                                        // ✅ LOG AJOUTe
-                                        $output .= "Declinaison $reference mise a jour\n";
                                     }
                                 }
+                                $output .= "Declinaison $reference mise a jour\n";
                             }
 
                             if ($id_attribute) {
@@ -2351,26 +2400,6 @@ class PfProductImporter extends Module
                                     (int) $stock_product,
                                     (int) $shop
                                 );
-                            }
-
-                            // Ajout des images dans le tableau des images a traiter
-                            // $this->dump($feedproduct[$tabledata['image_url']], $id_product_attribute);
-                            if (Configuration::get('PI_ALLOW_PRODUCTIMAGEIMPORT') == '1') {
-                                if (
-                                    isset($feedproduct[$tabledata['image_url']])
-                                    && trim($feedproduct[$tabledata['image_url']]) != ''
-                                    && $feedproduct[$tabledata['image_url']] != '0'
-                                ) {
-                                    $img_separator = ',';
-
-                                    $import_images[] = [
-                                        'urls' => explode($img_separator, $feedproduct[$tabledata['image_url']]),
-                                        'product' => $product,
-                                        'reference' => $reference,
-                                        'shops' => $shops,
-                                        'id_product_attribute' => $id_product_attribute,
-                                    ];
-                                }
                             }
                         }
 

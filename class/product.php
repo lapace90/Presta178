@@ -992,32 +992,36 @@ class ProductVccsv extends Vccsv
     }
 
     /**
-     * @edit Definima
-     * Permet de formater un prix venant du webservice pour Prestashop (évite la duplication de code)
+     * @edit Ilaria (+fix DEEE)
+     * Formate un prix venant du WS pour PrestaShop.
+     * - $price : pvTTC renvoyé par le WS (string|float)
+     * - $tax   : taux TVA en % (ex: 20). Si 0/null → juste normalise $price.
+     * - $deee : écotaxe TTC renvoyée par le WS (ex: $art->deee). Par défaut 0.
      *
-     * @param $price
-     * @param $tax
-     *
-     * @return float|mixed|string
+     * Retourne un string formaté 6 décimales, correspondant au HT **hors DEEE**,
+     * donc directement compatible avec Product->price.
      */
-    public static function formatPriceFromWS($price, $tax = 0)
+    public static function formatPriceFromWS($price, $tax = 0, $deee = 0)
     {
-        if ($price) {
-            $price = str_replace(', ', '.', $price);
-            $price = str_replace('#', '.', $price);
-            $price = str_replace('R', '', $price);
-            $price = (float) $price;
-
-            if ($tax) {
-                $price = $price / (1 + $tax / 100);
-            }
-
-            $price = number_format($price, 6, '.', '');
-        } else {
-            $price = 0.000000;
+        if ($price === null || $price === '') {
+            return '0.000000';
         }
 
-        return $price;
+        // normalisation legacy
+        $price = str_replace([', ', '#', 'R'], ['.', '.', ''], (string)$price);
+        $price = (float)$price;
+
+        // si pas de TVA → juste normaliser
+        if (!$tax) {
+            return number_format($price, 6, '.', '');
+        }
+
+        // ⚠️ retirer l'écotaxe TTC avant de retirer la TVA
+        $deee = is_numeric($deee) ? (float)$deee : 0.0;
+        $taxCoef = 1.0 + ((float)$tax / 100.0);
+        $htBaseSansDeee = ($price - $deee) / $taxCoef;
+
+        return number_format($htBaseSansDeee, 6, '.', '');
     }
 
     /**

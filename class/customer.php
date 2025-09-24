@@ -687,7 +687,7 @@ class CustomerVccsv extends Vccsv
                                 $customer->firstname = (is_numeric($firstname) ? '-' : $firstname);
                                 $customer->lastname = (is_numeric($lastname) ? '-' : $lastname);
                                 $customer->passwd = '123456789'; // Mot de passe temporaire
-                                $customer->passwd = Tools::hash($customer->passwd); // Hashage sécurisé
+                                // $customer->passwd = Tools::hash($customer->passwd); // Hashage sécurisé commenté pour tester
                                 $customer->email = $email;
                                 $customer->birthday = $ann;
                                 $customer->active = 1; // Client actif
