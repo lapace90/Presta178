@@ -432,14 +432,14 @@ class ProductVccsv extends Vccsv
                 }
             }
 
+            if (empty($lots)) {
+                // Pas de lots à traiter, on retourne sans afficher de résumé
+                return '';
+            }
+
+            // On affiche le header seulement s'il y a des lots à traiter
             $output .= "=== IMPORT LOTS ===\n";
             $output .= count($lots) . " lots a traiter\n";
-
-            if (empty($lots)) {
-                $output .= "Aucun lot a importer\n";
-                $output .= "=== FIN IMPORT LOTS ===\n";
-                return $output;
-            }
 
             foreach ($lots as $lot) {
                 $lots_traites++;
@@ -515,7 +515,7 @@ class ProductVccsv extends Vccsv
 
                     foreach ($articles as $article) {
                         $qty = isset($article->stock) ? (int)$article->stock : 1;
-                        $prix_unitaire = isset($article->pvTTC) ? (float)$article->pvTTC : 0;
+                        $prix_ligne_ws = isset($article->pvTTC) ? (float)$article->pvTTC : 0;
 
                         // Recherche du produit
                         $found_product = self::findProductByReference($article->codeArt);
@@ -529,7 +529,7 @@ class ProductVccsv extends Vccsv
                             $success = self::addItemToPack($product_pack->id, $found_product['id_product'], $qty);
                             if ($success) {
                                 $articles_ajoutes++;
-                                $prix_total += $prix_unitaire * $qty;
+                                $prix_total += $prix_ligne_ws; // Utilisation directe du prix du WS (déjà calculé)
 
                                 // Calculer le stock maximum possible
                                 $product_stock = StockAvailable::getQuantityAvailableByProduct($found_product['id_product']);
@@ -546,13 +546,21 @@ class ProductVccsv extends Vccsv
                     // Finalisation du produit pack
                     $product_pack->id_tax_rules_group = 1;
 
-                    if ($tauxtva > 0) {
-                        $prix_ht = $prix_total / (1 + $tauxtva / 100);
-                    } else {
-                        $prix_ht = $prix_total;
+                    // Récupération du taux de TVA depuis le groupe de taxes
+                    $taux_tva_reel = 0;
+                    $tax_rate = Db::getInstance()->getValue(
+                        'SELECT t.rate 
+                         FROM ' . _DB_PREFIX_ . 'tax_rule tr
+                         JOIN ' . _DB_PREFIX_ . 'tax t ON t.id_tax = tr.id_tax
+                         WHERE tr.id_tax_rules_group = 1
+                         ORDER BY t.rate DESC'
+                    );
+                    if ($tax_rate) {
+                        $taux_tva_reel = (float) $tax_rate;
                     }
 
-                    $product_pack->price = number_format($prix_ht, 6, '.', '');
+                    // Conversion du prix TTC en prix HT pour PrestaShop
+                    $product_pack->price = ProductVccsv::formatPriceFromWS($prix_total, $taux_tva_reel, 0);
                     $product_pack->weight = $poids_total;
 
                     // Mise à jour du stock
@@ -564,6 +572,16 @@ class ProductVccsv extends Vccsv
                     $output .= "Erreur lot $pack_code: " . $e->getMessage() . "\n";
                 }
             }
+
+            // Résumé final (affiché seulement s'il y a eu des lots traités)
+            $output .= "--- RESUME ---\n";
+            $output .= "Lots traites: $lots_traites\n";
+            $output .= "Lots crees: $lots_crees\n";
+            $output .= "Lots mis a jour: $lots_mis_a_jour\n";
+            if ($lots_erreurs > 0) {
+                $output .= "Erreurs: $lots_erreurs\n";
+            }
+            $output .= "=== FIN IMPORT LOTS ===\n";
         } catch (SoapFault $exception) {
             $lots_erreurs++;
             $output .= "Erreur SOAP: " . Vccsv::logError($exception);
@@ -571,16 +589,6 @@ class ProductVccsv extends Vccsv
             $lots_erreurs++;
             $output .= "Erreur generale: " . $e->getMessage() . "\n";
         }
-
-        // Résumé final
-        $output .= "--- RESUME ---\n";
-        $output .= "Lots traites: $lots_traites\n";
-        $output .= "Lots crees: $lots_crees\n";
-        $output .= "Lots mis a jour: $lots_mis_a_jour\n";
-        if ($lots_erreurs > 0) {
-            $output .= "Erreurs: $lots_erreurs\n";
-        }
-        $output .= "=== FIN IMPORT LOTS ===\n";
 
         return $output;
     }
@@ -1022,6 +1030,58 @@ class ProductVccsv extends Vccsv
         $htBaseSansDeee = ($price - $deee) / $taxCoef;
 
         return number_format($htBaseSansDeee, 6, '.', '');
+    }
+
+    /**
+     * Formate une écotaxe TTC du WS en montant HT attendu par PrestaShop.
+     *
+     * @param float|string $deeeTTC
+     *
+     * @return string
+     */
+    public static function formatEcotaxFromWS($deeeTTC)
+    {
+        if (!Configuration::get('PS_USE_ECOTAX')) {
+            return '0.000000';
+        }
+
+        if ($deeeTTC === null || $deeeTTC === '') {
+            return '0.000000';
+        }
+
+        if (!is_float($deeeTTC) && !is_int($deeeTTC)) {
+            $deeeTTC = str_replace(['#', 'R', ', '], ['', '.', '.'], (string) $deeeTTC);
+        }
+
+        $deeeTTC = (float) $deeeTTC;
+        if ($deeeTTC <= 0) {
+            return '0.000000';
+        }
+
+        static $ecotaxRates = [];
+        $groupId = (int) Configuration::get('PS_ECOTAX_TAX_RULES_GROUP_ID');
+
+        if ($groupId <= 0) {
+            return number_format($deeeTTC, 6, '.', '');
+        }
+
+        if (!array_key_exists($groupId, $ecotaxRates)) {
+            $ecotaxRates[$groupId] = (float) Db::getInstance()->getValue(
+                'SELECT t.rate
+                 FROM ' . _DB_PREFIX_ . 'tax_rule tr
+                 JOIN ' . _DB_PREFIX_ . 'tax t ON t.id_tax = tr.id_tax
+                 WHERE tr.id_tax_rules_group=' . (int) $groupId . '
+                 ORDER BY t.rate DESC'
+            );
+        }
+
+        $ecoRate = $ecotaxRates[$groupId];
+
+        if ($ecoRate <= 0) {
+            return number_format($deeeTTC, 6, '.', '');
+        }
+
+        return number_format($deeeTTC / (1 + $ecoRate / 100), 6, '.', '');
     }
 
     /**

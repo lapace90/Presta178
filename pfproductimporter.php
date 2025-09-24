@@ -1692,20 +1692,7 @@ class PfProductImporter extends Module
                     ? (float) str_replace(['#', 'R', ', '], ['', '.', '.'], (string)$feedproduct[$tabledata['ecotax']])
                     : 0.0;
 
-                $ecoRG   = (int) Configuration::get('PS_ECOTAX_TAX_RULES_GROUP_ID');
-                $ecoRate = 0.0;
-                if ($ecoRG) {
-                    $ecoRate = (float) Db::getInstance()->getValue(
-                        'SELECT t.rate
-         FROM ' . _DB_PREFIX_ . 'tax_rule tr
-         JOIN ' . _DB_PREFIX_ . 'tax t ON t.id_tax = tr.id_tax
-         WHERE tr.id_tax_rules_group=' . (int)$ecoRG . '
-         ORDER BY t.rate DESC'
-                    );
-                }
-                $ecoHT = $deeeTTC > 0 ? $deeeTTC / (1 + $ecoRate / 100) : 0.0;
-                $product->ecotax = number_format($ecoHT, 6, '.', '');
-
+                $product->ecotax = ProductVccsv::formatEcotaxFromWS($deeeTTC);
 
                 // Installation de la taxe liee au produit
                 if (isset($tabledata['id_tax_rules_group'])) {
@@ -2201,16 +2188,17 @@ class PfProductImporter extends Module
                                 ? (float)$feedproduct[$tabledata['id_tax_rules_group']]
                                 : 20.0;
 
-                            $ecotax = isset($tabledata['ecotax'])
-                                ? ProductVccsv::formatPriceFromWS($feedproduct[$tabledata['ecotax']]) // normalisation simple
-                                : 0.000000;
+                            $ecotaxTTC = isset($tabledata['ecotax'])
+                                ? (float) ProductVccsv::formatPriceFromWS($feedproduct[$tabledata['ecotax']]) // normalisation simple
+                                : 0.0;
+                            $ecotaxHT = (float) ProductVccsv::formatEcotaxFromWS($ecotaxTTC);
 
                             // Prix HT de la déclinaison (sans DEEE), aligné Presta
                             $priceHTDecli = isset($tabledata['price'])
                                 ? (float) ProductVccsv::formatPriceFromWS(
                                     $feedproduct[$tabledata['price']],  // pvTTC de la déclinaison
                                     $amount_tax,
-                                    $ecotax                             // deee TTC de la déclinaison
+                                    $ecotaxTTC                             // deee TTC de la déclinaison
                                 )
                                 : 0.000000;
 
@@ -2223,7 +2211,7 @@ class PfProductImporter extends Module
                                 $impactHT,                // <-- impact HT correct
                                 $weight - $product->weight,
                                 0,
-                                Configuration::get('PS_USE_ECOTAX') ? (float)$ecotax : 0,
+                                Configuration::get('PS_USE_ECOTAX') ? $ecotaxHT : 0,
                                 $feedproduct[$tabledata['quantity']],
                                 [],
                                 $reference_for_combination,
@@ -2267,7 +2255,7 @@ class PfProductImporter extends Module
                                     $price, // price
                                     $weight, // weight
                                     0, // unit_impact
-                                    Configuration::get('PS_USE_ECOTAX') ? (float) $ecotax : 0, // ecotax
+                                    Configuration::get('PS_USE_ECOTAX') ? $ecotaxHT : 0,
                                     $feedproduct[$tabledata['quantity']], // quantity
                                     [], // id_images
                                     $reference_for_combination, // reference
@@ -2320,7 +2308,7 @@ class PfProductImporter extends Module
                                             $price, // price
                                             $weight, // weight
                                             0, // unit_impact
-                                            Configuration::get('PS_USE_ECOTAX') ? (float) $ecotax : 0, // ecotax
+                                            Configuration::get('PS_USE_ECOTAX') ? $ecotaxHT : 0,
                                             [], // id_images
                                             $reference_for_combination, // reference
                                             isset($tabledata['ean13']) && isset($feedproduct[$tabledata['ean13']])
