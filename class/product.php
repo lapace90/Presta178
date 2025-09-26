@@ -368,15 +368,15 @@ class ProductVccsv extends Vccsv
      * @param int $quantity
      * @return bool
      */
-    public static function addItemToPack($id_pack, $id_product, $quantity)
+    public static function addItemToPack($id_pack, $id_product, $quantity, $id_product_attribute = 0)
     {
-        // Vérifier si le produit existe déjà dans le pack
+        // Vérifier si le produit/déclinaison existe déjà dans le pack
         $existing_qty = Db::getInstance()->getValue('
         SELECT quantity 
         FROM `' . _DB_PREFIX_ . 'pack` 
         WHERE `id_product_pack` = ' . (int)$id_pack . ' 
         AND `id_product_item` = ' . (int)$id_product . '
-        AND `id_product_attribute_item` = 0
+        AND `id_product_attribute_item` = ' . (int)$id_product_attribute . '
     ');
 
         if ($existing_qty !== false) {
@@ -387,11 +387,22 @@ class ProductVccsv extends Vccsv
                 ['quantity' => $new_quantity],
                 '`id_product_pack` = ' . (int)$id_pack . ' 
              AND `id_product_item` = ' . (int)$id_product . '
-             AND `id_product_attribute_item` = 0'
+             AND `id_product_attribute_item` = ' . (int)$id_product_attribute
             );
         } else {
-            // Le produit n'existe pas : l'ajouter normalement
-            return Pack::addItem($id_pack, $id_product, $quantity);
+            // Le produit n'existe pas : l'ajouter
+            if ($id_product_attribute > 0) {
+                // Ajouter une déclinaison spécifique
+                return Db::getInstance()->insert('pack', [
+                    'id_product_pack' => (int)$id_pack,
+                    'id_product_item' => (int)$id_product,
+                    'id_product_attribute_item' => (int)$id_product_attribute,
+                    'quantity' => (int)$quantity
+                ]);
+            } else {
+                // Utiliser la méthode standard PrestaShop pour produit sans déclinaison
+                return Pack::addItem($id_pack, $id_product, $quantity);
+            }
         }
     }
 
@@ -511,7 +522,6 @@ class ProductVccsv extends Vccsv
                     $stock_lot = 10000;
                     $prix_total = 0;
                     $poids_total = 0;
-                    $tauxtva = 0;
 
                     foreach ($articles as $article) {
                         $qty = isset($article->stock) ? (int)$article->stock : 1;
@@ -525,14 +535,21 @@ class ProductVccsv extends Vccsv
                         }
 
                         if ($found_product) {
-                            // Ajouter au pack
-                            $success = self::addItemToPack($product_pack->id, $found_product['id_product'], $qty);
+                            $success = self::addItemToPack(
+                                $product_pack->id,
+                                $found_product['id_product'],
+                                $qty,
+                                $found_product['id_product_attribute']
+                            );
                             if ($success) {
                                 $articles_ajoutes++;
                                 $prix_total += $prix_ligne_ws; // Utilisation directe du prix du WS (déjà calculé)
 
                                 // Calculer le stock maximum possible
-                                $product_stock = StockAvailable::getQuantityAvailableByProduct($found_product['id_product']);
+                                $product_stock = StockAvailable::getQuantityAvailableByProduct(
+                                    $found_product['id_product'],
+                                    $found_product['id_product_attribute']
+                                );
                                 if ($product_stock > 0) {
                                     $stock_possible = floor($product_stock / $qty);
                                     $stock_lot = min($stock_lot, $stock_possible);

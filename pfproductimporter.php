@@ -1530,6 +1530,8 @@ class PfProductImporter extends Module
         $combinations = [];
         $attributes = [];
 
+        $combination_references_seen = [];
+
         $has_combination_base = false;
 
         // Recupere les infos pour les attributs
@@ -1543,6 +1545,7 @@ class PfProductImporter extends Module
         foreach ($final_products_arr as $feedproduct) {
             try {
                 $codeArtUpdated[] = $feedproduct[$tabledata[Configuration::get('PI_PRODUCT_REFERENCE')]];
+
                 /*
              * @edit Definima
              * Gestion des declinaisons a traiter apres les produits
@@ -1555,7 +1558,12 @@ class PfProductImporter extends Module
                     && $feedproduct[$tabledata['combination_reference']] !=
                     $feedproduct[$tabledata[Configuration::get('PI_PRODUCT_REFERENCE')]]
                 ) {
-                    $combinations[] = $feedproduct;
+                    $ref = $feedproduct[$tabledata[Configuration::get('PI_PRODUCT_REFERENCE')]];
+
+                    if (!in_array($ref, $combination_references_seen)) {
+                        $combinations[] = $feedproduct;
+                        $combination_references_seen[] = $ref;
+                    }
                     continue;
                 }
 
@@ -1572,11 +1580,16 @@ class PfProductImporter extends Module
                 // Si le produit de base a la valeur taille ou couleur renseignee,
                 // il faut creer une declinaison (la principale)
                 if ((!empty($attributes['taille']['value'])) || (!empty($attributes['couleur']['value']))) {
-                    $tmp_feedproduct = $feedproduct;
-                    $tmp_feedproduct[$tabledata['combination_reference']] =
-                        $feedproduct[$tabledata[Configuration::get('PI_PRODUCT_REFERENCE')]];
-                    $combinations[] = $tmp_feedproduct;
-                    $has_combination_base = $feedproduct[$tabledata[Configuration::get('PI_PRODUCT_REFERENCE')]];
+                    $ref = $feedproduct[$tabledata[Configuration::get('PI_PRODUCT_REFERENCE')]];
+                    if (!in_array($ref, $combination_references_seen)) {
+                        $tmp_feedproduct = $feedproduct;
+                        $tmp_feedproduct[$tabledata['combination_reference']] =
+                            $feedproduct[$tabledata[Configuration::get('PI_PRODUCT_REFERENCE')]];
+
+                        $combinations[] = $tmp_feedproduct;
+                        $combination_references_seen[] = $ref;
+                        $has_combination_base = $feedproduct[$tabledata[Configuration::get('PI_PRODUCT_REFERENCE')]];
+                    }
                 }
 
                 /**
@@ -2130,9 +2143,6 @@ class PfProductImporter extends Module
                             );
                             $id_attribute = 0;
 
-                            // $this->dump($infos_attribute);
-                            // exit;
-
                             if (!$infos_attribute) {
                                 // Creation de l'attribut
                                 $obj = new $Attribute();
@@ -2171,7 +2181,6 @@ class PfProductImporter extends Module
                             }
 
                             // Formate les infos
-
                             if (isset($tabledata['id_tax_rules_group'])) {
                                 $amount_tax = $feedproduct[$tabledata['id_tax_rules_group']];
                             } else {
@@ -2205,32 +2214,33 @@ class PfProductImporter extends Module
                             // Impact HT = HT_declinaison - HT_base_produit
                             $impactHT = (float) number_format(($priceHTDecli - (float)$product->price), 6, '.', '');
 
-                            // puis :
-                            $id_product_attribute = $product->addCombinationEntity(
-                                $wholesale_price,
-                                $impactHT,                // <-- impact HT correct
-                                $weight - $product->weight,
-                                0,
-                                Configuration::get('PS_USE_ECOTAX') ? $ecotaxHT : 0,
-                                $feedproduct[$tabledata['quantity']],
-                                [],
-                                $reference_for_combination,
-                                0,
-                                isset($tabledata['ean13']) && isset($feedproduct[$tabledata['ean13']]) ? $feedproduct[$tabledata['ean13']] : '',
-                                $has_default_combination ? 0 : 1,
-                                null,
-                                isset($tabledata['upc']) && isset($feedproduct[$tabledata['upc']]) ? $feedproduct[$tabledata['upc']] : null,
-                                1,
-                                $shops,
-                                null
-                            );
-
                             $weight = $weight - $product->weight;
 
                             // Recupere la declinaison si elle existe
                             if (Configuration::get('PI_PRODUCT_REFERENCE') == 'reference') {
                                 $reference_for_combination = $feedproduct[$tabledata['reference']];
                                 $id_product_attribute = Combination::getIdByReference($product->id, $reference_for_combination);
+
+                                // Ajout des images spécifiques de la declinaison
+                                if (Configuration::get('PI_ALLOW_PRODUCTIMAGEIMPORT') == '1' && $id_product_attribute) {
+                                    if (
+                                        isset($feedproduct[$tabledata['image_url']])
+                                        && trim($feedproduct[$tabledata['image_url']]) != ''
+                                        && $feedproduct[$tabledata['image_url']] != '0'
+                                    ) {
+                                        $img_separator = ',';
+
+                                        $import_images[] = [
+                                            'urls' => explode($img_separator, $feedproduct[$tabledata['image_url']]),
+                                            'product' => $product,
+                                            'reference' => $reference,
+                                            'id_product_attribute' => $id_product_attribute, // ceci lie l'image à la déclinaison
+                                            'shops' => $shops,
+                                        ];
+
+                                        $output .= "Image declinaison $reference ajoutee au traitement\n";
+                                    }
+                                }
                             } elseif (Configuration::get('PI_PRODUCT_REFERENCE') == 'ean13') {
                                 $reference_for_combination = ''; // Pas de reference auto pour les declinaisons en mode EAN13
 
@@ -2252,7 +2262,7 @@ class PfProductImporter extends Module
                             if (!$id_product_attribute) {
                                 $id_product_attribute = $product->addCombinationEntity(
                                     $wholesale_price, // wholesale_price
-                                    $price, // price
+                                    $impactHT, // price
                                     $weight, // weight
                                     0, // unit_impact
                                     Configuration::get('PS_USE_ECOTAX') ? $ecotaxHT : 0,
@@ -2290,7 +2300,6 @@ class PfProductImporter extends Module
                                 $obj->cleanPositions((int) $attributes[$attr_name]['id_attribute_group'], false);
                                 AttributeGroup::cleanPositions();
 
-                                // log
                                 Db::getInstance()->execute('INSERT INTO `' . _DB_PREFIX_ .
                                     'pfi_import_log`(vdate, reference, product_error) VALUE(NOW(), "' .
                                     pSQL($reference) . '", "Declinaison creee pour produit ' . $product_reference . '")');
@@ -2305,7 +2314,7 @@ class PfProductImporter extends Module
                                         $product->updateAttribute(
                                             $id_product_attribute,
                                             $wholesale_price, // wholesale_price
-                                            $price, // price
+                                            $impactHT, // price
                                             $weight, // weight
                                             0, // unit_impact
                                             Configuration::get('PS_USE_ECOTAX') ? $ecotaxHT : 0,
@@ -2403,10 +2412,6 @@ class PfProductImporter extends Module
             }
         }
 
-        /*
-     * @edit Definima
-     * Traitement des images
-     */
         if (!empty($import_images)) {
             // Suppression des images Prestashop
             foreach ($import_images as $img) {

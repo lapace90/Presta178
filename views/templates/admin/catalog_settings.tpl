@@ -218,52 +218,121 @@
 
 <script>
     function startDirectImport() {
-        $('#confirmModal').fadeOut();
-        $('#progress-bars-container').show();
-        $('#import-progress-section').show();
-        $('#import-status').text('Import en cours...');
+    $('#confirmModal').fadeOut();
+    $('#progress-bars-container').show();
+    $('#import-progress-section').show();
+    $('#import-status').text('Import en cours...');
 
-        $.ajax({
-            url: window.location.href,
-            type: 'POST',
-            data: {
-                'direct_import_now': 1,
-                'token': $('input[name="token"]').val()
-            },
-            // Supprimez temporairement dataType: 'json'
-            success: function(data) {
-                console.log('Réponse brute:', data);
-                console.log('Type de la réponse:', typeof data);
+    // Animation progressive de la barre
+    let progress = 0;
+    let progressInterval = setInterval(function() {
+        progress += Math.random() * 3 + 1; // Progression aléatoire mais ralentie
+        
+        if (progress > 95) {
+            progress = 95; // On s'arrête à 95% en attendant la réponse
+        }
+        
+        $('#import-progress').css('width', progress + '%');
+        $('#import-status').text('Import en cours... ' + Math.round(progress) + '%');
+    }, 200);
 
-                // Tentez de parser manuellement
-                try {
-                    var jsonData = JSON.parse(data);
-                    console.log('JSON parsé:', jsonData);
-
-                    if (jsonData.success) {
-                        $('#import-progress').css('width', '100%');
-                        $('#import-status').html(
-                            '<strong>✅ Import terminé !</strong><br>' +
-                            jsonData.stats.produits_crees + ' produits créés<br>' +
-                            jsonData.stats.declinaisons_creees + ' déclinaisons créées<br>' +
-                            'Temps : ' + jsonData.stats.temps_execution
-                        );
-                    } else {
-                        $('#import-status').html('❌ ' + jsonData.message);
-                    }
-                } catch (e) {
-                    console.error('Erreur de parsing JSON:', e);
-                    $('#import-status').html('Import terminé');
-                    $('#import-progress').css('width', '100%');
-                }
-            },
-            error: function(xhr, status, error) {
-                console.error('Erreur AJAX:', status, error);
-                console.log('Réponse complète:', xhr.responseText);
-                $('#import-status').text('❌ Erreur: ' + status);
+    $.ajax({
+        url: window.location.href,
+        type: 'POST',
+        data: {
+            'direct_import_now': 1,
+            'token': $('input[name="token"]').val()
+        },
+        success: function(data) {
+            clearInterval(progressInterval); // Arrêter l'animation
+            
+            // Extraire les résultats de l'import
+            var importData = data.split('=== IMPORT PRODUITS ===');
+            if (importData.length > 1) {
+                var resultText = '=== IMPORT PRODUITS ===' + importData[importData.length - 1];
+                
+                // Compter les résultats
+                var produitsCreesMatch = resultText.match(/Produits crees: (\d+)/);
+                var declinaisonsCreesMatch = resultText.match(/Declinaisons creees: (\d+)/);
+                
+                var produitsCount = produitsCreesMatch ? produitsCreesMatch[1] : '?';
+                var declinaisonsCount = declinaisonsCreesMatch ? declinaisonsCreesMatch[1] : '?';
+                
+                $('#import-progress').css('width', '100%');
+                $('#import-status').html(
+                    '<strong>✅ Import terminé !</strong><br>' +
+                    produitsCount + ' produits créés<br>' +
+                    declinaisonsCount + ' déclinaisons créées<br>' +
+                    '<details><summary>Voir détails</summary><pre>' + resultText + '</pre></details>'
+                );
+            } else {
+                $('#import-progress').css('width', '100%');
+                $('#import-status').html('✅ Import terminé !<br>Voir console pour détails');
             }
-        });
-    }
+        },
+        error: function(xhr, status, error) {
+            clearInterval(progressInterval); // Arrêter l'animation
+            console.error('Erreur AJAX:', status, error);
+            $('#import-progress').css('width', '100%');
+            $('#import-status').html('❌ Erreur: ' + status);
+        }
+    });
+}
+function startDirectExport() {
+    $('#confirmExportModal').fadeOut();
+    $('#progress-bars-container').show();
+    $('#export-progress-section').show();
+    $('#export-status').text('Export en cours...');
+
+    // Animation progressive de la barre
+    let progress = 0;
+    let progressInterval = setInterval(function() {
+        progress += Math.random() * 3 + 1; // Progression aléatoire mais ralentie
+        
+        if (progress > 95) {
+            progress = 95; // On s'arrête à 95% en attendant la réponse
+        }
+        
+        $('#export-progress').css('width', progress + '%');
+        $('#export-status').text('Export en cours... ' + Math.round(progress) + '%');
+    }, 200);
+
+    $.ajax({
+        url: window.location.href,
+        type: 'POST',
+        data: {
+            'exportallproduct': 1,
+            'token': $('input[name="token"]').val()
+        },
+        success: function(data) {
+            clearInterval(progressInterval); // Arrêter l'animation
+            
+            // Extraire les résultats de l'export
+            if (data.includes('Exportation du catalogue terminee')) {
+                $('#export-progress').css('width', '100%');
+                $('#export-status').html(
+                    '<strong>✅ Export terminé !</strong><br>' +
+                    'Catalogue exporté vers Rezomatic<br>' +
+                    '<details><summary>Voir détails</summary><pre>' + data + '</pre></details>'
+                );
+            } else if (data.includes('Erreur')) {
+                $('#export-progress').css('width', '100%');
+                $('#export-status').html('❌ Erreur lors de l\'export<br>Voir console pour détails');
+                console.error('Erreur export:', data);
+            } else {
+                $('#export-progress').css('width', '100%');
+                $('#export-status').html('✅ Export terminé !<br>Voir console pour détails');
+                console.log('Export result:', data);
+            }
+        },
+        error: function(xhr, status, error) {
+            clearInterval(progressInterval); // Arrêter l'animation
+            console.error('Erreur AJAX:', status, error);
+            $('#export-progress').css('width', '100%');
+            $('#export-status').html('❌ Erreur: ' + status);
+        }
+    });
+}
 </script>
 
 <style>
