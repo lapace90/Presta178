@@ -3,7 +3,7 @@
     <div class="row">
         <!-- Colonne Import -->
         <div class="col-lg-6">
-            <h4 class="semi-titre">Paramètres d'import</h4>
+            <h4 class="semi-titre">Parametres d'import</h4>
 
             <!-- Activer l'import de produits -->
             <div class="form-group">
@@ -40,9 +40,9 @@
                 </div>
             </div>
 
-            <!-- Activer la mise à jour des désignations -->
+            <!-- Activer la mise à jour des designations -->
             <div class="form-group">
-                <label class="control-label col-lg-4">Activer la mise à jour des désignations</label>
+                <label class="control-label col-lg-4">Activer la mise à jour des designations</label>
                 <div class="col-lg-8">
                     <span class="switch prestashop-switch fixed-width-lg">
                         <input type="radio" name="PI_UPDATE_DESIGNATION" id="PI_UPDATE_DESIGNATION_on" value="1"
@@ -54,14 +54,14 @@
                         <a class="slide-button btn"></a>
                     </span>
                     <p class="help-block">
-                        Mettre à jour les désignations d'articles de Rezomatic vers PrestaShop.
+                        Mettre à jour les designations d'articles de Rezomatic vers PrestaShop.
                     </p>
                 </div>
             </div>
 
-            <!-- Activer les produits importés -->
+            <!-- Activer les produits importes -->
             <div class="form-group">
-                <label class="control-label col-lg-4">Activer les produits importés</label>
+                <label class="control-label col-lg-4">Activer les produits importes</label>
                 <div class="col-lg-8">
                     <span class="switch prestashop-switch fixed-width-lg">
                         <input type="radio" name="PI_ACTIVE" id="PI_ACTIVE_on" value="1"
@@ -78,7 +78,7 @@
 
         <!-- Colonne Export -->
         <div class="col-lg-6">
-            <h4 class="semi-titre">Paramètres d'export</h4>
+            <h4 class="semi-titre">Parametres d'export</h4>
 
             <!-- Activer l'export de produits -->
             <div class="form-group">
@@ -97,9 +97,9 @@
                 </div>
             </div>
 
-            <!-- Activer l'export de catégories -->
+            <!-- Activer l'export de categories -->
             <div class="form-group">
-                <label class="control-label col-lg-4">Activer l'export de catégories</label>
+                <label class="control-label col-lg-4">Activer l'export de categories</label>
                 <div class="col-lg-8">
                     <span class="switch prestashop-switch fixed-width-lg">
                         <input type="radio" name="PI_ALLOW_CATEGORYEXPORT" id="PI_ALLOW_CATEGORYEXPORT_on" value="1"
@@ -111,14 +111,14 @@
                         <a class="slide-button btn"></a>
                     </span>
                     <p class="help-block">
-                        Exporter les catégories de PrestaShop vers Rezomatic.
+                        Exporter les categories de PrestaShop vers Rezomatic.
                     </p>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Boutons alignés -->
+    <!-- Boutons alignes -->
     <div class="row" style="margin-top: 3rem;">
         <div class="col-lg-6">
             <div class="form-group">
@@ -142,7 +142,7 @@
                 <div class="col-lg-8">
                     <form action="" method="post">
                         {* <input type="submit" name="exportallproduct" {if !$fields_value.PI_ALLOW_PRODUCTEXPORT}disabled="disabled" {/if} class="button btn btn-primary"
-                            value="Démarrer le processus d'export" /> *}
+                            value="Demarrer le processus d'export" /> *}
                     </form>
                     {include file="module:pfproductimporter/views/templates/hook/exportallcatalog.tpl"}
 
@@ -151,7 +151,7 @@
         </div>
 
     </div>
-    <!-- Div dédiée aux barres de progression (pleine largeur) -->
+    <!-- Div dediee aux barres de progression (pleine largeur) -->
     <div id="progress-bars-container" style="display: none; margin-top: 20px; width: 100%;">
         <!-- Barre de progression pour l'import -->
         <div id="import-progress-section" class="progress-section" style="display: none;">
@@ -190,6 +190,43 @@
         </span>
         <p class="help-block">Importer les soldes de Rezomatic vers PrestaShop par produit</p>
     </div>
+    {if $fields_value.PI_ALLOW_PRODUCTSALESIMPORT}
+    <div class="form-group">
+        <label class="control-label col-lg-3">Synchronisation manuelle des soldes</label>
+        <div class="col-lg-8">
+            <button type="button" id="openSalesModalBtn" class="btn btn-warning">
+                <i class="icon-refresh"></i> Synchroniser les soldes maintenant
+            </button>
+            <p class="help-block">
+                Synchronise immediatement les tarifs soldes depuis Rezomatic.
+                Normalement, cette synchronisation se fait automatiquement à minuit.
+            </p>
+        </div>
+    </div>
+    {/if}
+
+    <!-- Modale de confirmation des soldes -->
+    <div id="confirmSalesModal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Confirmer la synchronisation des soldes</h2>
+                <span class="modal-close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p>Cette action va :</p>
+                <ul>
+                    <li>Supprimer tous les tarifs soldes actuels</li>
+                    <li>Verifier si une periode de soldes est en cours dans Rezomatic</li>
+                    <li>Importer les nouveaux tarifs soldes si applicable</li>
+                </ul>
+                <p><strong>Voulez-vous continuer ?</strong></p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-cancel modal-cancel">Annuler</button>
+                <button type="button" class="btn btn-warning" onclick="startSalesSync()">Synchroniser</button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- Synchroniser les soldes depuis -->
@@ -201,13 +238,13 @@
     </div>
 </div>
 
-<!-- Champ de référence produit -->
+<!-- Champ de reference produit -->
 <div class="form-group">
-    <label class="control-label col-lg-3">Champ de référence produit</label>
+    <label class="control-label col-lg-3">Champ de reference produit</label>
     <div class="col-lg-6">
         <select name="PI_PRODUCT_REFERENCE">
             <option value="reference" {if $fields_value.PI_PRODUCT_REFERENCE == 'reference'}selected{/if}>
-                Référence</option>
+                Reference</option>
             <option value="ean13" {if $fields_value.PI_PRODUCT_REFERENCE == 'ean13'}selected{/if}>
                 EAN13</option>
             <option value="upc" {if $fields_value.PI_PRODUCT_REFERENCE == 'upc'}selected{/if}>
@@ -218,125 +255,225 @@
 
 <script>
     function startDirectImport() {
-    $('#confirmModal').fadeOut();
-    $('#progress-bars-container').show();
-    $('#import-progress-section').show();
-    $('#import-status').text('Import en cours...');
+        $('#confirmModal').fadeOut();
+        $('#progress-bars-container').show();
+        $('#import-progress-section').show();
+        $('#import-status').text('Import en cours...');
 
-    // Animation progressive de la barre
-    let progress = 0;
-    let progressInterval = setInterval(function() {
-        progress += Math.random() * 3 + 1; // Progression aléatoire mais ralentie
-        
-        if (progress > 95) {
-            progress = 95; // On s'arrête à 95% en attendant la réponse
-        }
-        
-        $('#import-progress').css('width', progress + '%');
-        $('#import-status').text('Import en cours... ' + Math.round(progress) + '%');
-    }, 200);
+        // Animation progressive de la barre
+        let progress = 0;
+        let progressInterval = setInterval(function() {
+            progress += Math.random() * 3 + 1; // Progression aleatoire mais ralentie
 
-    $.ajax({
-        url: window.location.href,
-        type: 'POST',
-        data: {
-            'direct_import_now': 1,
-            'token': $('input[name="token"]').val()
-        },
-        success: function(data) {
-            clearInterval(progressInterval); // Arrêter l'animation
-            
-            // Extraire les résultats de l'import
-            var importData = data.split('=== IMPORT PRODUITS ===');
-            if (importData.length > 1) {
-                var resultText = '=== IMPORT PRODUITS ===' + importData[importData.length - 1];
-                
-                // Compter les résultats
-                var produitsCreesMatch = resultText.match(/Produits crees: (\d+)/);
-                var declinaisonsCreesMatch = resultText.match(/Declinaisons creees: (\d+)/);
-                
-                var produitsCount = produitsCreesMatch ? produitsCreesMatch[1] : '?';
-                var declinaisonsCount = declinaisonsCreesMatch ? declinaisonsCreesMatch[1] : '?';
-                
-                $('#import-progress').css('width', '100%');
-                $('#import-status').html(
-                    '<strong>✅ Import terminé !</strong><br>' +
-                    produitsCount + ' produits créés<br>' +
-                    declinaisonsCount + ' déclinaisons créées<br>' +
-                    '<details><summary>Voir détails</summary><pre>' + resultText + '</pre></details>'
-                );
-            } else {
-                $('#import-progress').css('width', '100%');
-                $('#import-status').html('✅ Import terminé !<br>Voir console pour détails');
+            if (progress > 95) {
+                progress = 95; // On s'arrête à 95% en attendant la reponse
             }
-        },
-        error: function(xhr, status, error) {
-            clearInterval(progressInterval); // Arrêter l'animation
-            console.error('Erreur AJAX:', status, error);
-            $('#import-progress').css('width', '100%');
-            $('#import-status').html('❌ Erreur: ' + status);
-        }
-    });
-}
-function startDirectExport() {
-    $('#confirmExportModal').fadeOut();
-    $('#progress-bars-container').show();
-    $('#export-progress-section').show();
-    $('#export-status').text('Export en cours...');
 
-    // Animation progressive de la barre
-    let progress = 0;
-    let progressInterval = setInterval(function() {
-        progress += Math.random() * 3 + 1; // Progression aléatoire mais ralentie
-        
-        if (progress > 95) {
-            progress = 95; // On s'arrête à 95% en attendant la réponse
-        }
-        
-        $('#export-progress').css('width', progress + '%');
-        $('#export-status').text('Export en cours... ' + Math.round(progress) + '%');
-    }, 200);
+            $('#import-progress').css('width', progress + '%');
+            $('#import-status').text('Import en cours... ' + Math.round(progress) + '%');
+        }, 200);
 
-    $.ajax({
-        url: window.location.href,
-        type: 'POST',
-        data: {
-            'exportallproduct': 1,
-            'token': $('input[name="token"]').val()
-        },
-        success: function(data) {
-            clearInterval(progressInterval); // Arrêter l'animation
-            
-            // Extraire les résultats de l'export
-            if (data.includes('Exportation du catalogue terminee')) {
-                $('#export-progress').css('width', '100%');
-                $('#export-status').html(
-                    '<strong>✅ Export terminé !</strong><br>' +
-                    'Catalogue exporté vers Rezomatic<br>' +
-                    '<details><summary>Voir détails</summary><pre>' + data + '</pre></details>'
-                );
-            } else if (data.includes('Erreur')) {
-                $('#export-progress').css('width', '100%');
-                $('#export-status').html('❌ Erreur lors de l\'export<br>Voir console pour détails');
-                console.error('Erreur export:', data);
-            } else {
-                $('#export-progress').css('width', '100%');
-                $('#export-status').html('✅ Export terminé !<br>Voir console pour détails');
-                console.log('Export result:', data);
+        $.ajax({
+            url: window.location.href,
+            type: 'POST',
+            data: {
+                'direct_import_now': 1,
+                'token': $('input[name="token"]').val()
+            },
+            success: function(data) {
+                clearInterval(progressInterval);
+
+                var importData = data.split('=== IMPORT PRODUITS ===');
+                if (importData.length > 1) {
+                    var resultText = '=== IMPORT PRODUITS ===' + importData[importData.length - 1];
+
+                    // Extraire les statistiques du resume
+                    var produitsTraitesMatch = resultText.match(/Produits traites: (\d+)/);
+                    var produitsCreesMatch = resultText.match(/Produits crees: (\d+)/);
+                    var produitsMisAJourMatch = resultText.match(/Produits mis a jour: (\d+)/);
+                    var declinaisonsCreesMatch = resultText.match(/Declinaisons creees: (\d+)/);
+
+                    var produitsTraites = produitsTraitesMatch ? produitsTraitesMatch[1] : '?';
+                    var produitsCreesCount = produitsCreesMatch ? produitsCreesMatch[1] : '0';
+                    var produitsMisAJour = produitsMisAJourMatch ? produitsMisAJourMatch[1] : '0';
+                    var declinaisonsCount = declinaisonsCreesMatch ? declinaisonsCreesMatch[1] : '0';
+
+                    $('#import-progress').css('width', '100%');
+
+                    var message = '<strong>✅ Import termine !</strong><br>';
+                    message += produitsTraites + ' produits traites<br>';
+
+                    if (produitsCreesCount > 0) {
+                        message += produitsCreesCount + ' produits crees<br>';
+                    }
+                    if (produitsMisAJour > 0) {
+                        message += produitsMisAJour + ' produits mis à jour<br>';
+                    }
+                    if (declinaisonsCount > 0) {
+                        message += declinaisonsCount + ' declinaisons creees';
+                    }
+
+                    $('#import-status').html(message);
+                } else {
+                    $('#import-progress').css('width', '100%');
+                    $('#import-status').html('✅ Import termine !');
+                }
+            },
+            error: function(xhr, status, error) {
+                clearInterval(progressInterval); // Arrêter l'animation
+                console.error('Erreur AJAX:', status, error);
+                $('#import-progress').css('width', '100%');
+                $('#import-status').html('❌ Erreur: ' + status);
             }
-        },
-        error: function(xhr, status, error) {
-            clearInterval(progressInterval); // Arrêter l'animation
-            console.error('Erreur AJAX:', status, error);
-            $('#export-progress').css('width', '100%');
-            $('#export-status').html('❌ Erreur: ' + status);
+        });
+    }
+
+    function startDirectExport() {
+        $('#confirmExportModal').fadeOut();
+        $('#progress-bars-container').show();
+        $('#export-progress-section').show();
+        $('#export-status').text('Export en cours...');
+
+        // Animation progressive de la barre
+        let progress = 0;
+        let progressInterval = setInterval(function() {
+            progress += Math.random() * 3 + 1; // Progression aleatoire mais ralentie
+
+            if (progress > 95) {
+                progress = 95; // On s'arrête à 95% en attendant la reponse
+            }
+
+            $('#export-progress').css('width', progress + '%');
+            $('#export-status').text('Export en cours... ' + Math.round(progress) + '%');
+        }, 200);
+
+        $.ajax({
+            url: window.location.href,
+            type: 'POST',
+            data: {
+                'exportallproduct': 1,
+                'token': $('input[name="token"]').val()
+            },
+            success: function(data) {
+                clearInterval(progressInterval);
+
+                if (data.includes('Exportation du catalogue terminee')) {
+                    // Chercher des statistiques dans la reponse si disponibles
+                    var produitsMatch = data.match(/(\d+)\s+produits?\s+(exportes?|traites?)/i);
+                    var count = produitsMatch ? produitsMatch[1] : '';
+
+                    $('#export-progress').css('width', '100%');
+                    $('#export-status').html(
+                        '<strong>✅ Export termine !</strong><br>' +
+                        (count ? count + ' produits exportes vers Rezomatic' :
+                            'Catalogue exporte vers Rezomatic')
+                    );
+                } else if (data.includes('Erreur')) {
+                    $('#export-progress').css('width', '100%');
+                    $('#export-status').html('❌ Erreur lors de l\'export');
+                    console.error('Erreur export:', data);
+                } else {
+                    $('#export-progress').css('width', '100%');
+                    $('#export-status').html('✅ Export termine !');
+                }
+            },
+            error: function(xhr, status, error) {
+                clearInterval(progressInterval); // Arrêter l'animation
+                console.error('Erreur AJAX:', status, error);
+                $('#export-progress').css('width', '100%');
+                $('#export-status').html('❌ Erreur: ' + status);
+            }
+        });
+    }
+
+    function startSalesSync() {
+        $('#confirmSalesModal').fadeOut();
+        $('#progress-bars-container').show();
+
+        // Creer une section de progression specifique aux soldes si pas dejà presente
+        if ($('#sales-progress-section').length === 0) {
+            $('#progress-bars-container').append(`
+            <div id="sales-progress-section" class="progress-section">
+                <h4>Progression de la synchronisation des soldes</h4>
+                <div class="progress-bar-fullwidth">
+                    <div id="sales-progress" class="progress-bar-fill-tgm" style="width: 0%;"></div>
+                </div>
+                <p id="sales-status" class="progress-text">En attente...</p>
+            </div>
+        `);
         }
+
+        $('#sales-progress-section').show();
+        $('#import-progress-section').hide();
+        $('#export-progress-section').hide();
+        $('#sales-status').text('Synchronisation en cours...');
+
+        // Animation progressive de la barre
+        let progress = 0;
+        let progressInterval = setInterval(function() {
+            progress += Math.random() * 2 + 0.5; // Plus lent car c'est generalement rapide
+
+            if (progress > 90) {
+                progress = 90; // On s'arrête à 90% en attendant la reponse
+            }
+
+            $('#sales-progress').css('width', progress + '%');
+            $('#sales-status').text('Synchronisation des soldes... ' + Math.round(progress) + '%');
+        }, 300);
+
+        $.ajax({
+            url: window.location.href,
+            type: 'POST',
+            data: {
+                'sync_sales_now': 1,
+                'token': $('input[name="token"]').val()
+            },
+            timeout: 120000, // 2 minutes max
+            success: function(data) {
+                clearInterval(progressInterval);
+
+                $('#sales-progress').css('width', '100%');
+                if (data.includes('Soldes en cours')) {
+                    $('#sales-status').html(
+                        '<strong>✅ Synchronisation terminée !</strong><br>Soldes synchronisés avec succès'
+                        );
+                } else if (data.includes('Reset tarifs soldes')) {
+                    $('#sales-status').html(
+                        '<strong>ℹ️ Synchronisation terminée</strong><br>Aucune période de soldes en cours'
+                        );
+                } else if (data.includes('Erreur')) {
+                    $('#sales-status').html('❌ Erreur lors de la synchronisation des soldes');
+                    console.error('Erreur soldes:', data);
+                } 
+            },
+            error: function(xhr, status, error) {
+                clearInterval(progressInterval);
+                console.error('Erreur AJAX:', status, error);
+                $('#sales-progress').css('width', '100%');
+                $('#sales-status').html('❌ Erreur: ' + status);
+            }
+        });
+    }
+    $(document).ready(function() {
+        // Gestion de la modale des soldes
+        $('#openSalesModalBtn').click(function() {
+            $('#confirmSalesModal').fadeIn();
+        });
+
+        $('#confirmSalesModal .modal-close, #confirmSalesModal .modal-cancel').click(function() {
+            $('#confirmSalesModal').fadeOut();
+        });
+
+        $(window).click(function(event) {
+            if (event.target == document.getElementById('confirmSalesModal')) {
+                $('#confirmSalesModal').fadeOut();
+            }
+        });
     });
-}
 </script>
 
 <style>
-    /* ===== STYLES GÉNÉRAUX ===== */
+    /* ===== STYLES GeNeRAUX ===== */
     .semi-titre {
         font-weight: bold !important;
         font-size: 1.2rem !important;
@@ -344,7 +481,7 @@ function startDirectExport() {
         color: #959595 !important;
     }
 
-    /* ===== STYLES POUR BOUTONS DÉSACTIVÉS ===== */
+    /* ===== STYLES POUR BOUTONS DeSACTIVeS ===== */
     .btn-disabled,
     .btn:disabled,
     input[type="button"]:disabled {

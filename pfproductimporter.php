@@ -163,6 +163,49 @@ class PfProductImporter extends Module
                 return "Erreur : " . $e->getMessage();
             }
         }
+        if (Tools::isSubmit('sync_sales_now')) {
+            // Vérifier que la synchronisation des soldes est activée
+            if (Configuration::get('PI_ALLOW_PRODUCTSALESIMPORT') != '1') {
+                $this->mylog("Synchronisation manuelle des soldes : fonctionnalité désactivée");
+                return "Erreur : La synchronisation des soldes n'est pas activée.";
+            }
+
+            $debut = time();
+
+            try {
+                // Log de début
+                $log_output = '<u>SYNCHRONISATION MANUELLE DES SOLDES</u>' . "\n";
+                $log_output .= 'Déclenchée le ' . date('Y-m-d H:i:s') . "\n";
+
+                // Appeler la fonction de synchronisation des soldes
+                $result = $this->salesSyncCron();
+                $log_output .= $result;
+
+                // Timer final
+                $fin = time();
+                $log_output .= "\n" . 'Synchronisation des soldes terminée en ' . ($fin - $debut) . 's.' . "\n";
+
+                // Sauvegarder dans les logs
+                $this->mylog($log_output);
+
+                // Si requête AJAX, retourner juste les données
+                if (Tools::getValue('ajax') || !empty($_SERVER['HTTP_X_REQUESTED_WITH'])) {
+                    die($result);
+                }
+
+                return $output . $result;
+            } catch (Exception $e) {
+                $error_message = "ERREUR Synchronisation manuelle des soldes : " . $e->getMessage();
+                $this->mylog($error_message);
+
+                // Si requête AJAX, retourner juste l'erreur
+                if (Tools::getValue('ajax') || !empty($_SERVER['HTTP_X_REQUESTED_WITH'])) {
+                    die($error_message);
+                }
+
+                return "Erreur : " . $e->getMessage();
+            }
+        }
 
         if (Tools::isSubmit('SubmitSaveMainSettings')) {
             // 1. Save Main Settings
@@ -241,23 +284,6 @@ class PfProductImporter extends Module
                 $output = $this->displayConfirmation($this->l('Parametres des clients enregistres avec succes.'));
             }
             return $output;
-            // } elseif (Tools::isSubmit('Submitdirectimport')) {
-            //     // TODO : Bloc a supprimer ?
-            //     $Submitlimit = 2000;
-            //     $id = 2;
-            //     $this->saveTestTmpData($id, $Submitlimit);
-            //     $this->finalimport($Submitlimit, '');
-            // } elseif (Tools::isSubmit('Submitimportfromlastupdated')) {
-            //     // TODO : Bloc a supprimer ?
-            //     $Submitlimit = 100;
-            //     $sync_reference = Db::getInstance()->getValue('select sync_reference from `' . _DB_PREFIX_ .
-            //         'pfi_import_update`  where feedid = 1 ');
-            //     if (!$sync_reference || $sync_reference == '00000') {
-            //         $sync_reference = '';
-            //     } else {
-            //         $Submitoffset = $sync_reference;
-            //     }
-            //     $this->finalimport($Submitlimit, $Submitoffset);
         } elseif (Tools::isSubmit('SubmitExportcustomer')) {
             // TODO : Bloc a supprimer ?
             $customerid = Tools::getValue('txtcustomerid');

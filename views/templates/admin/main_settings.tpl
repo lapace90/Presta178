@@ -100,6 +100,11 @@
                             Association des catégories
                         </a>
                     </li>
+                    <li role="presentation">
+                        <a href="#states_mapping" aria-controls="states-order" role="tab" data-toggle="tab">
+                            Association des états des commandes
+                        </a>
+                    </li>
                 </ul>
 
                 <!-- Contenu des sous-onglets -->
@@ -131,6 +136,14 @@
                                     {/if}
                                 </div>
                             </div>
+                        </div>
+
+                        <!-- Sous-onglet States Mapping -->
+                        <div role="tabpanel" class="tab-pane" id="states_mapping">
+                            <div class="form-section">
+                                {include file="module:pfproductimporter/views/templates/hook/mapStatesOrder.tpl"}
+                            </div>
+                                    
                         </div>
                     </div>
 
