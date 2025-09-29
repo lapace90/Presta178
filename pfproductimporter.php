@@ -164,18 +164,18 @@ class PfProductImporter extends Module
             }
         }
         if (Tools::isSubmit('sync_sales_now')) {
-            // Vérifier que la synchronisation des soldes est activée
+            // Verifier que la synchronisation des soldes est activee
             if (Configuration::get('PI_ALLOW_PRODUCTSALESIMPORT') != '1') {
-                $this->mylog("Synchronisation manuelle des soldes : fonctionnalité désactivée");
-                return "Erreur : La synchronisation des soldes n'est pas activée.";
+                $this->mylog("Synchronisation manuelle des soldes : fonctionnalite desactivee");
+                return "Erreur : La synchronisation des soldes n'est pas activee.";
             }
 
             $debut = time();
 
             try {
-                // Log de début
+                // Log de debut
                 $log_output = '<u>SYNCHRONISATION MANUELLE DES SOLDES</u>' . "\n";
-                $log_output .= 'Déclenchée le ' . date('Y-m-d H:i:s') . "\n";
+                $log_output .= 'Declenchee le ' . date('Y-m-d H:i:s') . "\n";
 
                 // Appeler la fonction de synchronisation des soldes
                 $result = $this->salesSyncCron();
@@ -183,12 +183,12 @@ class PfProductImporter extends Module
 
                 // Timer final
                 $fin = time();
-                $log_output .= "\n" . 'Synchronisation des soldes terminée en ' . ($fin - $debut) . 's.' . "\n";
+                $log_output .= "\n" . 'Synchronisation des soldes terminee en ' . ($fin - $debut) . 's.' . "\n";
 
                 // Sauvegarder dans les logs
                 $this->mylog($log_output);
 
-                // Si requête AJAX, retourner juste les données
+                // Si requête AJAX, retourner juste les donnees
                 if (Tools::getValue('ajax') || !empty($_SERVER['HTTP_X_REQUESTED_WITH'])) {
                     die($result);
                 }
@@ -329,6 +329,15 @@ class PfProductImporter extends Module
             $url = AdminController::$currentIndex . '&modulename=' . $this->name . '&configure=' . $this->name .
                 '&token=' . Tools::getAdminTokenLite('AdminModules') . '&tab_module=payments_gateways';
             Tools::redirectAdmin($url);
+        } elseif (Tools::isSubmit('submitStateMapping')) {
+            // Gestion de la soumission du formulaire d'association des etats
+            if ($this->saveStateMapping()) {
+                $output = $this->displayConfirmation('Les associations des etats de commandes ont ete enregistrees avec succes.');
+            } else {
+                $output = $this->displayError('Une erreur est survenue lors de l\'enregistrement des associations.');
+            }
+            $output .= $this->renderMainSettingsForm();
+            return $output;
         } else {
             // 0. Main settings
             $output = $this->renderMainSettingsForm();
@@ -1061,6 +1070,9 @@ class PfProductImporter extends Module
                 $mappedCategories[$category_name] = $row ? $row : null;
             }
         }
+        $source_states = $this->getRezoStates();
+        $prestashop_states = $this->getPrestashopStates();
+        $existing_state_mapping = $this->getExistingStateMapping();
 
         // Preparer toutes les variables pour le template
         $this->context->smarty->assign(array(
@@ -1075,7 +1087,7 @@ class PfProductImporter extends Module
             'mappedCategories' => $mappedCategories,
             'module_name' => $this->name,
             'ps_version' => _PS_VERSION_,
-            'fields_value' => $config_values,
+            'fields_value' => array_merge($config_values, array('state_mapping' => $existing_state_mapping)),
             'languages' => Language::getLanguages(false),
             'default_language' => (int)Configuration::get('PS_LANG_DEFAULT'),
             'last_cron' => Tools::displayDate(Configuration::get('PI_LAST_CRON'), null, true),
@@ -1103,6 +1115,9 @@ class PfProductImporter extends Module
             'months_names' => $months_names,
             'feedid' => $feedid,
             'feedurl' => $feedurl,
+            'source_states' => $source_states,
+            'prestashop_states' => $prestashop_states,
+            'state_mapping' => $existing_state_mapping,
             'fixcategory' => $fixcategory,
             'base_url' => __PS_BASE_URI__,
             'secure_key' => Configuration::get('PI_SOFTWAREID'),
@@ -1172,13 +1187,13 @@ class PfProductImporter extends Module
     }
 
     /**
-     * Sauvegarder les paramètres principaux avec logging des modifications
+     * Sauvegarder les parametres principaux avec logging des modifications
      *
      * @return bool
      */
     public function saveMainSettingsForm()
     {
-        // Récupérer les anciennes valeurs pour comparaison
+        // Recuperer les anciennes valeurs pour comparaison
         $oldValues = array(
             'SYNC_CSV_FEEDURL' => Configuration::get('SYNC_CSV_FEEDURL'),
             'PI_SOFTWAREID' => Configuration::get('PI_SOFTWAREID'),
@@ -1243,7 +1258,7 @@ class PfProductImporter extends Module
         Configuration::updateValue('PI_EDIT_TASK', 1);
         Configuration::updateValue('PI_LAST_CRON', date('Y-m-d H:i:s'));
 
-        // Logger les modifications après sauvegarde
+        // Logger les modifications apres sauvegarde
         $newValues = array(
             'SYNC_CSV_FEEDURL' => trim(Tools::getValue('SYNC_CSV_FEEDURL')),
             'PI_SOFTWAREID' => Tools::getValue('PI_SOFTWAREID'),
@@ -1334,7 +1349,7 @@ class PfProductImporter extends Module
     }
 
     /**
-     * Formate les valeurs booléennes pour un affichage plus lisible
+     * Formate les valeurs booleennes pour un affichage plus lisible
      */
     private function formatBooleanValue($value)
     {
@@ -1783,7 +1798,7 @@ class PfProductImporter extends Module
 
                 if (isset($tabledata['price'], $feedproduct[$tabledata['price']])) {
                     if (isset($tabledata['price'], $feedproduct[$tabledata['price']])) {
-                        // taux réel si mappé, sinon défaut 20
+                        // taux reel si mappe, sinon defaut 20
                         $amount_tax = isset($tabledata['id_tax_rules_group'])
                             ? (float)$feedproduct[$tabledata['id_tax_rules_group']]
                             : 20.0;
@@ -2228,12 +2243,12 @@ class PfProductImporter extends Module
                                 : 0.0;
                             $ecotaxHT = (float) ProductVccsv::formatEcotaxFromWS($ecotaxTTC);
 
-                            // Prix HT de la déclinaison (sans DEEE), aligné Presta
+                            // Prix HT de la declinaison (sans DEEE), aligne Presta
                             $priceHTDecli = isset($tabledata['price'])
                                 ? (float) ProductVccsv::formatPriceFromWS(
-                                    $feedproduct[$tabledata['price']],  // pvTTC de la déclinaison
+                                    $feedproduct[$tabledata['price']],  // pvTTC de la declinaison
                                     $amount_tax,
-                                    $ecotaxTTC                             // deee TTC de la déclinaison
+                                    $ecotaxTTC                             // deee TTC de la declinaison
                                 )
                                 : 0.000000;
 
@@ -2247,7 +2262,7 @@ class PfProductImporter extends Module
                                 $reference_for_combination = $feedproduct[$tabledata['reference']];
                                 $id_product_attribute = Combination::getIdByReference($product->id, $reference_for_combination);
 
-                                // Ajout des images spécifiques de la declinaison
+                                // Ajout des images specifiques de la declinaison
                                 if (Configuration::get('PI_ALLOW_PRODUCTIMAGEIMPORT') == '1' && $id_product_attribute) {
                                     if (
                                         isset($feedproduct[$tabledata['image_url']])
@@ -2260,7 +2275,7 @@ class PfProductImporter extends Module
                                             'urls' => explode($img_separator, $feedproduct[$tabledata['image_url']]),
                                             'product' => $product,
                                             'reference' => $reference,
-                                            'id_product_attribute' => $id_product_attribute, // ceci lie l'image à la déclinaison
+                                            'id_product_attribute' => $id_product_attribute, // ceci lie l'image a la declinaison
                                             'shops' => $shops,
                                         ];
 
@@ -3510,6 +3525,7 @@ class PfProductImporter extends Module
     /**
      * @edit Definima
      * Mise a jour status commandes
+     * (ça retourne FAUX mais ça fonctionne quand même: les changements sont pris en compte)
      *
      * @return string
      */
@@ -3519,83 +3535,102 @@ class PfProductImporter extends Module
         $feedurl = Configuration::get('SYNC_CSV_FEEDURL');
         $output = '';
 
-        $sc = new SoapClient($feedurl, ['keep_alive' => false]);
-
-        // Recupere les commandes dont les statuts sont en attente
-        $get_status_orders = [
-            1, // En attente de paiement par cheque
-            10, // En attente de virement bancaire
-        ];
-        if ($this->isPrestashop15()) {
-            $get_status_orders[] = 11; // En attente de paiement PayPal
-        }
-        if ($this->isPrestashop16()) {
-            $get_status_orders[] = 11; // En attente de paiement PayPal
-            $get_status_orders[] = 13; // En attente de reapprovisionnement (non paye)
-            $get_status_orders[] = 14; // En attente de paiement a la livraison
-        }
-        if ($this->isPrestashop17()) {
-            $get_status_orders[] = 12; // En attente de reapprovisionnement (non paye)
-            $get_status_orders[] = 13; // En attente de paiement a la livraison
+        // Vérification de base
+        if (Configuration::get('PI_UPDATE_ORDER_STATUS') != '1') {
+            return $output;
         }
 
-        // Nouveau status
-        $new_status_orders = [
-            'preparation' => 3,
-            'annule' => 6,
-        ];
+        try {
+            $sc = new SoapClient($feedurl, ['keep_alive' => false]);
+        } catch (Exception $e) {
+            $output .= "ERREUR Connexion SOAP: " . $e->getMessage() . "\n";
+            return $output;
+        }
 
-        $id_orders = OrderVccsv::getOrderIdsByStatus($get_status_orders);
+        // Récupérer les commandes exportées récemment
+        $sql = "SELECT system_orderid as id_order, api_orderid 
+            FROM " . _DB_PREFIX_ . "pfi_order_apisync 
+            WHERE api_orderid IS NOT NULL 
+            ORDER BY system_orderid DESC 
+            LIMIT 20";
 
-        $OrderHistory = new OrderHistory();
+        $exported_orders = Db::getInstance()->executeS($sql);
 
-        foreach ($id_orders as $o) {
+        if (empty($exported_orders)) {
+            return $output;
+        }
+
+        $updates_count = 0;
+        $skipped_count = 0;
+        $errors_count = 0;
+
+        foreach ($exported_orders as $order_data) {
             try {
-                $api_orderid = Db::getInstance()->getValue('select api_orderid from ' . _DB_PREFIX_ .
-                    'pfi_order_apisync where system_orderid=' . (int) $o['id_order']);
+                // Récupérer le statut depuis Rezomatic
+                $rz_status = $sc->getCommandesStatuts($softwareid, $order_data['api_orderid']);
 
-                if (!$api_orderid) {
-                    $output .= 'Correspondance commande num ' . $o['id_order'] . ' introuvable\n';
+                if (!isset($rz_status->commandeState)) {
                     continue;
                 }
 
-                $rz_status = $sc->getCommandesStatuts($softwareid, $api_orderid);
-
-                if (isset($rz_status->commandeState)) {
-                    if (is_array($rz_status->commandeState)) {
-                        $last_state = end($rz_status->commandeState);
-                    } else {
-                        $last_state = $rz_status->commandeState;
-                    }
+                // Récupérer le dernier statut
+                if (is_array($rz_status->commandeState)) {
+                    $last_state = end($rz_status->commandeState);
+                } else {
+                    $last_state = $rz_status->commandeState;
                 }
 
-                if (!$last_state) {
+                if (!$last_state || !isset($last_state->statut)) {
                     continue;
                 }
 
-                $new_status = 0;
-                switch ($last_state->statut) {
-                    // RZ Termine => PS En Preparation
-                    case 2:
-                        $new_status = $new_status_orders['preparation'];
-                        break;
-                    // Annulee
-                    case 3:
-                    case 4:
-                        $new_status = $new_status_orders['annule'];
-                        break;
-                }
+                // Utiliser nos associations configurées
+                $new_status = $this->getPrestashopStateFromRezoNumber($last_state->statut);
 
                 if (!$new_status) {
-                    continue;
+                    continue; // Pas d'association configurée
                 }
 
-                // Update status Prestashop
-                $OrderHistory->changeIdOrderState($new_status, $o['id_order']);
-                $output .= 'Statut commande num ' . $o['id_order'] . ' mis a jour => ' . $new_status;
-            } catch (SoapFault $exception) {
-                $output .= Vccsv::logError($exception);
+                // Vérifier l'état actuel
+                $order_obj = new Order($order_data['id_order']);
+                $current_ps_state = $order_obj->current_state;
+
+                if ($current_ps_state == $new_status) {
+                    $skipped_count++;
+                    continue; // Déjà à jour
+                }
+
+                // Tentative de mise à jour
+                $OrderHistory = new OrderHistory();
+                $OrderHistory->changeIdOrderState($new_status, $order_data['id_order']);
+
+                // VRAIE VÉRIFICATION : On regarde si l'état a changé en base
+                $order_obj_after = new Order($order_data['id_order']);
+                $final_state = $order_obj_after->current_state;
+
+                if ($final_state == $new_status) {
+                    // Succès réel
+                    $updates_count++;
+                    $rezomatic_label = $this->getRezoStateLabelFromNumber($last_state->statut);
+                    $output .= 'Commande ' . $order_data['id_order'] . ' : "' . $rezomatic_label . '" => état ' . $new_status . '\n';
+                } else {
+                    // Échec réel
+                    $errors_count++;
+                    $output .= 'Échec commande ' . $order_data['id_order'] . ' (état=' . $final_state . ')\n';
+                }
+            } catch (Exception $e) {
+                $errors_count++;
+                $output .= 'Erreur commande ' . $order_data['id_order'] . ': ' . $e->getMessage() . '\n';
             }
+        }
+
+        // Résumé uniquement si il y a eu des actions
+        if ($updates_count > 0 || $errors_count > 0) {
+            $output .= 'États synchronisés: ' . $updates_count;
+            if ($errors_count > 0) {
+                $output .= ' (erreurs: ' . $errors_count . ')';
+            }
+            $output .= '\n';
         }
 
         return $output;
@@ -3837,5 +3872,139 @@ HTML;
             }
         }
         return '';
+    }
+
+
+    /**
+     * Sauvegarde les associations des etats de commandes
+     * 
+     * @return bool
+     */
+    private function saveStateMapping()
+    {
+        try {
+            $state_mappings = Tools::getValue('state_mapping');
+
+            if (!is_array($state_mappings)) {
+                return false;
+            }
+
+            // Sauvegarder chaque association
+            foreach ($state_mappings as $rezomatic_state => $prestashop_state_id) {
+                $config_key = 'PI_STATE_MAPPING_' . strtoupper(str_replace(' ', '_', $rezomatic_state));
+                Configuration::updateValue($config_key, (int)$prestashop_state_id);
+            }
+
+            return true;
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+
+    /**
+     * Recupere les etats Rezomatic (selon la documentation)
+     * 
+     * @return array
+     */
+    private function getRezoStates()
+    {
+        return [
+            'EN ATTENTE',
+            'TERMINE',
+            'ANNULE PAR OPERATEUR',
+            'ANNULE PAR CLIENT',
+            'PRETE'
+        ];
+    }
+
+    /**
+     * Recupere les etats PrestaShop disponibles
+     * 
+     * @return array
+     */
+    private function getPrestashopStates()
+    {
+        $id_lang = $this->context->language->id;
+
+        $states = Db::getInstance()->executeS('
+        SELECT os.id_order_state as id_state, osl.name 
+        FROM ' . _DB_PREFIX_ . 'order_state os
+        LEFT JOIN ' . _DB_PREFIX_ . 'order_state_lang osl 
+            ON (os.id_order_state = osl.id_order_state AND osl.id_lang = ' . (int)$id_lang . ')
+        WHERE os.deleted = 0
+        ORDER BY osl.name ASC
+    ');
+
+        return $states ?: [];
+    }
+
+    /**
+     * Recupere les associations existantes des etats
+     * 
+     * @return array
+     */
+    private function getExistingStateMapping()
+    {
+        $rezo_states = $this->getRezoStates();
+        $existing_mappings = [];
+
+        foreach ($rezo_states as $state) {
+            $config_key = 'PI_STATE_MAPPING_' . strtoupper(str_replace(' ', '_', $state));
+            $existing_mappings[$state] = Configuration::get($config_key);
+        }
+
+        return $existing_mappings;
+    }
+
+    /**
+     * Recupere l'ID de l'etat PrestaShop associe a un etat Rezomatic
+     * 
+     * @param string $rezomatic_state
+     * @return int|false
+     */
+    public function getPrestashopStateFromRezomatic($rezomatic_state)
+    {
+        $config_key = 'PI_STATE_MAPPING_' . strtoupper(str_replace(' ', '_', $rezomatic_state));
+        $ps_state_id = Configuration::get($config_key);
+
+        return $ps_state_id ? (int)$ps_state_id : false;
+    }
+
+    /**
+     * Convertit un numero de statut Rezomatic en libelle textuel
+     * 
+     * @param int $rezomatic_status_number
+     * @return string|false
+     */
+    private function getRezoStateLabelFromNumber($rezomatic_status_number)
+    {
+        $rezomatic_states_mapping = [
+            1 => 'EN ATTENTE',
+            2 => 'TERMINE',
+            3 => 'ANNULE PAR OPERATEUR',
+            4 => 'ANNULE PAR CLIENT',
+            5 => 'PRETE'
+        ];
+
+        return isset($rezomatic_states_mapping[$rezomatic_status_number])
+            ? $rezomatic_states_mapping[$rezomatic_status_number]
+            : false;
+    }
+
+    /**
+     * Recupere l'ID de l'etat PrestaShop associe a un numero de statut Rezomatic
+     * 
+     * @param int $rezomatic_status_number
+     * @return int|false
+     */
+    private function getPrestashopStateFromRezoNumber($rezomatic_status_number)
+    {
+        $rezomatic_label = $this->getRezoStateLabelFromNumber($rezomatic_status_number);
+
+        if (!$rezomatic_label) {
+            return false;
+        }
+
+        return $this->getPrestashopStateFromRezomatic($rezomatic_label);
     }
 }

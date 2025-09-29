@@ -136,14 +136,13 @@
                                     {/if}
                                 </div>
                             </div>
-                        </div>
 
-                        <!-- Sous-onglet States Mapping -->
-                        <div role="tabpanel" class="tab-pane" id="states_mapping">
-                            <div class="form-section">
-                                {include file="module:pfproductimporter/views/templates/hook/mapStatesOrder.tpl"}
+                            <!-- Sous-onglet States Mapping -->
+                            <div role="tabpanel" class="tab-pane" id="states_mapping">
+                                <div class="form-section">
+                                    {include file="module:pfproductimporter/views/templates/hook/mapStatesOrder.tpl"}
+                                </div>
                             </div>
-                                    
                         </div>
                     </div>
 
@@ -241,5 +240,3 @@
                 margin-top: 20px;
             }
         </style>
-
-        

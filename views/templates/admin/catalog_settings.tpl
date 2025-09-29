@@ -194,8 +194,8 @@
     <div class="form-group">
         <label class="control-label col-lg-3">Synchronisation manuelle des soldes</label>
         <div class="col-lg-8">
-            <button type="button" id="openSalesModalBtn" class="btn btn-warning">
-                <i class="icon-refresh"></i> Synchroniser les soldes maintenant
+            <button type="button" id="openSalesModalBtn" class="btn btn-primary">
+                <i class="icon-refresh" style="padding-right: 4px;"></i> Synchroniser les soldes maintenant
             </button>
             <p class="help-block">
                 Synchronise immediatement les tarifs soldes depuis Rezomatic.
@@ -233,8 +233,7 @@
 <div class="form-group">
     <label class="control-label col-lg-3">Synchroniser les soldes depuis</label>
     <div class="col-lg-6">
-        <input type="text" name="SYNC_STOCK_PDV" value="{$fields_value.SYNC_STOCK_PDV}" />
-        <p class="help-block">Laisser vide pour les soldes globaux.</p>
+        <input type="text" name="PI_SYNC_SALES_PDV" value="{$fields_value.PI_SYNC_SALES_PDV}" />
     </div>
 </div>
 

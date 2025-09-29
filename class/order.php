@@ -42,6 +42,7 @@ class OrderVccsv extends Vccsv
         $products = $order->getProductsDetail();
         if (!$allow_orderexport) {
             $output .= parent::l('Order export not allowed') . '\n';
+            return $output;
         } elseif (empty($products)) {
             $output .= parent::l('Order empty') . ' ' . $id_order . '\n';
         } else {
