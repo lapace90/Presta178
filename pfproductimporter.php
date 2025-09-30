@@ -1557,8 +1557,6 @@ class PfProductImporter extends Module
                 'pfi_import_update`(table_id, sync_reference, feedid) values (1, "00000", 1)');
         }
 
-        $output .= "=== IMPORT PRODUITS ===\n";
-
         $final_products_arr = Db::getInstance(_PS_USE_SQL_SLAVE_)->ExecuteS('select *  from `' . _DB_PREFIX_ .
             'pfi_import_tempdata_csv` where feed_id=' . (int) $feed_id . ' ORDER BY col' . (int) $colid);
         $languages = Language::getLanguages();
@@ -1884,7 +1882,7 @@ class PfProductImporter extends Module
                     if ($product->id && Product::existsInDatabase((int) $product->id, 'product')) {
                         $linecountedited = $linecountedited + 1;
 
-                        $output .= "Produit $reference mis a jour\n";
+                        // $output .= "Produit $reference mis a jour\n";
 
                         $datas = Db::getInstance()->getRow('
                     SELECT product_shop.`date_add`
@@ -1911,7 +1909,7 @@ class PfProductImporter extends Module
                             $product->active = $activeproduct;
                             $linecountadded = $linecountadded + 1;
 
-                            $output .= "Produit simple $reference cree\n";
+                            // $output .= "Produit simple $reference cree\n";
 
                             try {
                                 if (isset($product->date_add) && $product->date_add != '') {
@@ -2032,7 +2030,7 @@ class PfProductImporter extends Module
                     $stock = $product->quantity;
                 }
                 if (StockAvailable::setQuantity((int) $product->id, 0, $stock) !== false) {
-                    $output .= 'Article ' . $product->$reference_field . ' mis a jour sur Prestashop depuis Rezomatic' . "\n";
+                    // $output .= 'Article ' . $product->$reference_field . ' mis a jour sur Prestashop depuis Rezomatic' . "\n";
                 } else {
                     $output .= 'Article ' . $product->$reference_field . ' <b>NON</b> mis a jour sur Prestashop' . "\n";
                 }
@@ -2269,17 +2267,26 @@ class PfProductImporter extends Module
                                         && trim($feedproduct[$tabledata['image_url']]) != ''
                                         && $feedproduct[$tabledata['image_url']] != '0'
                                     ) {
-                                        $img_separator = ',';
+                                        // ✅ CORRECTIF : Ne pas ajouter l'image si c'est la déclinaison principale
+                                        // La déclinaison principale hérite l'image du parent (id_product_attribute = 0)
+                                        $is_main_combination = ($is_combination_base ||
+                                            $feedproduct[$tabledata['combination_reference']] == $reference);
 
-                                        $import_images[] = [
-                                            'urls' => explode($img_separator, $feedproduct[$tabledata['image_url']]),
-                                            'product' => $product,
-                                            'reference' => $reference,
-                                            'id_product_attribute' => $id_product_attribute, // ceci lie l'image a la declinaison
-                                            'shops' => $shops,
-                                        ];
+                                        if (!$is_main_combination) {
+                                            $img_separator = ',';
 
-                                        $output .= "Image declinaison $reference ajoutee au traitement\n";
+                                            $import_images[] = [
+                                                'urls' => explode($img_separator, $feedproduct[$tabledata['image_url']]),
+                                                'product' => $product,
+                                                'reference' => $reference,
+                                                'id_product_attribute' => $id_product_attribute,
+                                                'shops' => $shops,
+                                            ];
+
+                                            // $output .= "Image declinaison $reference ajoutee au traitement\n";
+                                        } else {
+                                            // $output .= "Image declinaison principale $reference skippee (herite du parent)\n";
+                                        }
                                     }
                                 }
                             } elseif (Configuration::get('PI_PRODUCT_REFERENCE') == 'ean13') {
@@ -2346,7 +2353,7 @@ class PfProductImporter extends Module
                                     pSQL($reference) . '", "Declinaison creee pour produit ' . $product_reference . '")');
 
                                 $linecountadded_combinations = $linecountadded_combinations + 1;
-                                $output .= "Declinaison $reference creee\n";
+                                // $output .= "Declinaison $reference creee\n";
                             } else {
                                 // gets all the combinations of this product
                                 $attribute_combinations = $product->getAttributeCombinations($default_language_id);
@@ -2377,7 +2384,7 @@ class PfProductImporter extends Module
                                         $id_product_attribute_update = true;
                                     }
                                 }
-                                $output .= "Declinaison $reference mise a jour\n";
+                                // $output .= "Declinaison $reference mise a jour\n";
                             }
 
                             if ($id_attribute) {
@@ -2453,36 +2460,95 @@ class PfProductImporter extends Module
             }
         }
 
+        // Traitement des images à importer
         if (!empty($import_images)) {
-            // Suppression des images Prestashop
+            // Déduplication par clé unique
+            $deduplicated_images = [];
             foreach ($import_images as $img) {
                 $id_product = (int) $img['product']->id;
                 $id_product_attribute = isset($img['id_product_attribute']) ? (int) $img['id_product_attribute'] : 0;
-                $img['id_product_attribute'] = $id_product_attribute;
+
+                sort($img['urls']);
+                $key = $id_product . '_' . $id_product_attribute . '_' . implode('|', $img['urls']);
+
+                if (!isset($deduplicated_images[$key])) {
+                    $deduplicated_images[$key] = $img;
+                }
+            }
+            $import_images = array_values($deduplicated_images);
+
+            // Construction de la liste des URLs à importer
+            $urls_to_import = [];
+            foreach ($import_images as $img) {
+                $id_product = (int) $img['product']->id;
+                $id_product_attribute = isset($img['id_product_attribute']) ? (int) $img['id_product_attribute'] : 0;
+
+                foreach ($img['urls'] as $url) {
+                    $url = trim($url);
+                    $key = $id_product . '_' . $id_product_attribute . '_' . $url;
+                    $urls_to_import[$key] = true;
+                }
+            }
+
+            // Suppression des images qui ne sont plus dans le flux
+            $nb_images_supprimees = 0;
+            foreach ($import_images as $img) {
+                $id_product = (int) $img['product']->id;
                 $tmp_images = ProductVccsv::getSyncImages($id_product);
+
                 foreach ($tmp_images as $tmpimg) {
                     if (in_array($tmpimg['reference'], $codeArtUpdated)) {
-                        ProductVccsv::deleteImage($tmpimg['system_imageid']);
+                        $existing_key = $id_product . '_' . (int)$tmpimg['system_combinationid'] . '_' . trim($tmpimg['url']);
+
+                        if (!isset($urls_to_import[$existing_key])) {
+                            ProductVccsv::deleteImage($tmpimg['system_imageid']);
+                            $nb_images_supprimees++;
+                        }
                     }
                 }
             }
-            // Rajout des images Rezomatic
+
+            // Insertion des nouvelles images
+            $nb_images_ajoutees = 0;
             foreach ($import_images as $img) {
                 $id_product = (int) $img['product']->id;
                 $id_product_attribute = isset($img['id_product_attribute']) ? (int) $img['id_product_attribute'] : 0;
                 $img['id_product_attribute'] = $id_product_attribute;
+
                 $tmp_images = ProductVccsv::getSyncImages($id_product);
+                $existing_urls = [];
+                foreach ($tmp_images as $tmpimg) {
+                    $existing_key = (int)$tmpimg['system_combinationid'] . '_' . trim($tmpimg['url']);
+                    $existing_urls[$existing_key] = true;
+                }
+
                 sort($img['urls']);
-                // Rajout des images Rezomatic
+
                 if (is_array($img['urls']) && !empty($img['urls'])) {
                     foreach ($img['urls'] as $url) {
-                        ProductVccsv::insertImage($url, $img, $languages, $this);
+                        $url = trim($url);
+                        $check_key = $id_product_attribute . '_' . $url;
+
+                        if (!isset($existing_urls[$check_key])) {
+                            ProductVccsv::insertImage($url, $img, $languages, $this);
+                            $nb_images_ajoutees++;
+                        }
                     }
                 }
+            }
+
+            // Résumé du traitement des images
+            $output .= "--- IMAGES ---\n";
+            $output .= "Images traitees: " . count($import_images) . "\n";
+            if ($nb_images_supprimees > 0) {
+                $output .= "Images supprimees: " . $nb_images_supprimees . "\n";
+            }
+            if ($nb_images_ajoutees > 0) {
+                $output .= "Images ajoutees: " . $nb_images_ajoutees . "\n";
             }
         }
 
-        // ✅ ReSUMe AJOUTe AVANT LES LOGS CRON
+        //  ReSUMe AJOUTe AVANT LES LOGS CRON
         $output .= "--- RESUME PRODUITS ---\n";
         $output .= "Produits traites: $linecount\n";
         $output .= "Produits crees: $linecountadded\n";
@@ -2491,7 +2557,6 @@ class PfProductImporter extends Module
             $output .= "Declinaisons traitees: $linecount_combinations\n";
             $output .= "Declinaisons creees: $linecountadded_combinations\n";
         }
-        $output .= "=== FIN IMPORT PRODUITS ===\n";
 
         if ($iscron == 1) {
             echo '-------------------------------------------------<br/>';
@@ -2527,6 +2592,7 @@ class PfProductImporter extends Module
             echo $this->l('New categories') . ' : ' . implode(', ', $this->arrcat) . '<br/>';
             echo '-------------------------------------------------<br/>';
         }
+
         if (!empty($output)) {
             return $output;
         } else {
