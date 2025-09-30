@@ -686,8 +686,7 @@ class CustomerVccsv extends Vccsv
                                 // Protection contre les noms numériques (données corrompues)
                                 $customer->firstname = (is_numeric($firstname) ? '-' : $firstname);
                                 $customer->lastname = (is_numeric($lastname) ? '-' : $lastname);
-                                $customer->passwd = '123456789'; // Mot de passe temporaire
-                                // $customer->passwd = Tools::hash($customer->passwd); // Hashage sécurisé commenté pour tester
+                                $customer->passwd = Tools::hash('123456789');
                                 $customer->email = $email;
                                 $customer->birthday = $ann;
                                 $customer->active = 1; // Client actif
@@ -698,7 +697,12 @@ class CustomerVccsv extends Vccsv
                                 $customer->newsletter = $newsletter;
 
                                 try {
-                                    $customer->add(false);
+                                    if (empty($customer->secure_key)) {
+                                        $customer->secure_key = md5(uniqid(rand(), true)); // Génération d'une clé sécurisée unique
+                                    }
+
+                                    $customer->add(); // Enregistrement du client
+                                    // $customer->add(false); // Enregistrement sans validation pour éviter les erreurs
                                     $customer_id = $customer->id;
                                     $clients_created++;
                                     $output .= 'Customer imported: ' . $email . ' (ID: ' . $customer_id . ')' . "\n";
