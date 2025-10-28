@@ -57,11 +57,6 @@
                     Commandes
                 </a>
             </li>
-            <li role="presentation" class="{if $active_tab == 'payment'}active{/if}">
-                <a href="#payment_tab" aria-controls="payment" role="tab" data-toggle="tab">
-                    Paiements
-                </a>
-            </li>
             <li role="presentation" class="{if $active_tab == 'cron'}active{/if}">
                 <a href="#cron_tab" aria-controls="stock" role="tab" data-toggle="tab">
                     CRON
@@ -112,19 +107,26 @@
                 <ul class="nav nav-tabs" role="tablist">
                     <li role="presentation" class="active">
                         <a href="#fields_mapping" aria-controls="fields" role="tab" data-toggle="tab">
-                            Correspondance des champs produits
+                            Champs produits
                         </a>
                     </li>
                     <li role="presentation">
                         <a href="#category_mapping" aria-controls="category" role="tab" data-toggle="tab">
-                            Correspondance des catégories
+                            Catégories
                         </a>
                     </li>
                     <li role="presentation">
                         <a href="#states_mapping" aria-controls="states-order" role="tab" data-toggle="tab">
-                            Correspondance des états des commandes
+                            états des commandes
                         </a>
                     </li>
+
+                    <li role="presentation" class="{if $active_tab == 'payment'}active{/if}">
+                        <a href="#payment_tab" aria-controls="payment" role="tab" data-toggle="tab">
+                            Moyens de Paiements
+                        </a>
+                    </li>
+
                 </ul>
 
                 <!-- Contenu des sous-onglets -->
@@ -157,6 +159,13 @@
                             {include file="module:pfproductimporter/views/templates/hook/mapStatesOrder.tpl"}
                         </div>
                     </div>
+
+                    <!-- Sous-onglet Payment -->
+                    <div role="tabpanel" class="tab-pane {if $active_tab == 'payment'}active{/if}" id="payment_tab">
+                        <div class="form-section">
+                            {include file="module:pfproductimporter/views/templates/admin/payment_settings.tpl"}
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -180,16 +189,6 @@
                 </div>
             </div>
 
-            <!-- Onglet Payment -->
-            <div role="tabpanel" class="tab-pane {if $active_tab == 'payment'}active{/if}" id="payment_tab">
-                {include file="module:pfproductimporter/views/templates/admin/payment_settings.tpl"}
-                <div class="panel-footer">
-                    <button type="submit" name="Submitdirectimport" class="btn btn-default pull-right">
-                        <i class="process-icon-save"></i> Enregistrer les paiements
-                    </button>
-                </div>
-            </div>
-
             <!-- Onglet CRON -->
             <div role="tabpanel" class="tab-pane {if $active_tab == 'cron'}active{/if}" id="cron_tab">
                 <div class="form-section">
@@ -198,7 +197,7 @@
                         <button type="submit" name="SubmitSaveMainSettings" class="btn btn-default pull-right">
                             <i class="process-icon-save"></i> Sauvegarder les paramètres
                         </button>
-                    </div>                    
+                    </div>
                 </div>
             </div>
 
@@ -208,61 +207,61 @@
                     {include file="module:pfproductimporter/views/templates/admin/logs.tpl"}
                 </div>
             </div>
-            </form>
-        </div>
+    </form>
+</div>
 
-        <style>
-            .custom-import-export-settings {
-                max-width: 1200px;
-                margin: 20px auto;
-                font-family: Arial, sans-serif;
-                padding: 20px;
-                background-color: #fff;
-                border-radius: 5px;
-                box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-            }
+<style>
+    .custom-import-export-settings {
+        max-width: 1200px;
+        margin: 20px auto;
+        font-family: Arial, sans-serif;
+        padding: 20px;
+        background-color: #fff;
+        border-radius: 5px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
 
-            .custom-import-export-settings .panel-heading {
-                font-size: 1.5em;
-                color: #333;
-                margin-bottom: 20px;
-                padding-bottom: 10px;
-                border-bottom: 1px solid #eee;
-            }
+    .custom-import-export-settings .panel-heading {
+        font-size: 1.5em;
+        color: #333;
+        margin-bottom: 20px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #eee;
+    }
 
-            .custom-import-export-settings .nav-tabs {
-                border-bottom: 2px solid #2eacce;
-            }
+    .custom-import-export-settings .nav-tabs {
+        border-bottom: 2px solid #2eacce;
+    }
 
-            .custom-import-export-settings .nav-tabs>li.active>a,
-            .custom-import-export-settings .nav-tabs>li.active>a:hover,
-            .custom-import-export-settings .nav-tabs>li.active>a:focus {
-                background-color: #2eacce;
-                color: white;
-                border: 1px solid #2eacce;
-            }
+    .custom-import-export-settings .nav-tabs>li.active>a,
+    .custom-import-export-settings .nav-tabs>li.active>a:hover,
+    .custom-import-export-settings .nav-tabs>li.active>a:focus {
+        background-color: #2eacce;
+        color: white;
+        border: 1px solid #2eacce;
+    }
 
-            .custom-import-export-settings .tab-content {
-                padding: 20px 0;
-            }
+    .custom-import-export-settings .tab-content {
+        padding: 20px 0;
+    }
 
-            .custom-import-export-settings .form-section {
-                margin: 20px 0;
-                padding: 15px;
-                background-color: #f9f9f9;
-                border-radius: 4px;
-            }
+    .custom-import-export-settings .form-section {
+        margin: 20px 0;
+        padding: 15px;
+        background-color: #f9f9f9;
+        border-radius: 4px;
+    }
 
-            .custom-import-export-settings .form-section h3 {
-                margin-top: 0;
-                color: #2eacce;
-                background-color: white !important;
-                padding: 10px;
-            }
+    .custom-import-export-settings .form-section h3 {
+        margin-top: 0;
+        color: #2eacce;
+        background-color: white !important;
+        padding: 10px;
+    }
 
-            .custom-import-export-settings .panel-footer {
-                background-color: #f5f5f5;
-                border-top: 1px solid #ddd;
-                margin-top: 20px;
-            }
-        </style>
+    .custom-import-export-settings .panel-footer {
+        background-color: #f5f5f5;
+        border-top: 1px solid #ddd;
+        margin-top: 20px;
+    }
+</style>

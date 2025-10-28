@@ -207,6 +207,15 @@ class PfProductImporter extends Module
             }
         }
 
+        // Gestion de la soumission du formulaire d'association des paiements
+        if (Tools::isSubmit('SubmitSavePaymentMappings')) {
+            if ($this->savePaymentMappings()) {
+                $output .= $this->displayConfirmation('Les correspondances de paiement ont été enregistrées avec succès.');
+            } else {
+                $output .= $this->displayError('Erreur lors de l\'enregistrement des correspondances de paiement.');
+            }
+        }
+        // Gestion des differentes etapes de la configuration / importation
         if (Tools::isSubmit('SubmitSaveMainSettings')) {
             // 1. Save Main Settings
             if ($this->saveMainSettingsForm()) {
@@ -377,8 +386,7 @@ class PfProductImporter extends Module
      */
     public function hookActionProductAdd($params)
     {
-        if(!empty($params['id_product']))
-        {
+        if (!empty($params['id_product'])) {
             $output = ProductVccsv::productSync($params['id_product']);
             $this->mylog($output);
         }
@@ -396,8 +404,7 @@ class PfProductImporter extends Module
      */
     public function hookActionProductUpdate($params)
     {
-        if(!empty($params['id_product']))
-        {
+        if (!empty($params['id_product'])) {
             $output = ProductVccsv::productSync($params['id_product']);
             // Cas particulier Prestashop 1.6
             if (($this->isPrestashop16()) && (Configuration::get('PI_ALLOW_PRODUCTEXPORT') == 1)) {
@@ -414,7 +421,7 @@ class PfProductImporter extends Module
                 );
             }
             $this->mylog($output);
-        }        
+        }
     }
 
     /**
@@ -446,8 +453,7 @@ class PfProductImporter extends Module
         // Récupérer le contexte
         $context = Context::getContext();
         // Vérifier si un client est connecté pour la mise a jour des bons
-        if ($context->customer->isLogged())
-        {
+        if ($context->customer->isLogged()) {
             $output = CustomerVccsv::customerSync($context->customer->id);
             self::mylog($output);
         }
@@ -465,8 +471,7 @@ class PfProductImporter extends Module
         // Récupérer le contexte
         $context = Context::getContext();
         // Vérifier si un client est connecté pour la mise a jour des bons
-        if ($context->customer->isLogged())
-        {
+        if ($context->customer->isLogged()) {
             $output = CustomerVccsv::customerSync($context->customer->id);
             self::mylog($output);
         }
@@ -481,8 +486,7 @@ class PfProductImporter extends Module
      */
     public function hookActionObjectCustomerUpdateAfter($params)
     {
-        if (!empty($params['object']->id))
-        {
+        if (!empty($params['object']->id)) {
             $output = CustomerVccsv::customerSync($params['object']->id);
             $this->mylog($output);
         }
@@ -500,8 +504,7 @@ class PfProductImporter extends Module
         // Récupérer le contexte
         $context = Context::getContext();
         // Vérifier si un client est connecté pour la mise a jour des bons
-        if ($context->customer->isLogged())
-        {
+        if ($context->customer->isLogged()) {
             $output = CustomerVccsv::loyaltySync($context->customer->id, $context->customer->email);
             self::mylog($output);
         }
@@ -517,8 +520,7 @@ class PfProductImporter extends Module
     public function hookActionValidateOrder($params)
     {
         // $this->mylog("hookActionValidateOrder:".print_r($params['order'], true));
-        if (isset($params['order']) && isset($params['order']->id))
-        {
+        if (isset($params['order']) && isset($params['order']->id)) {
             $output = OrderVccsv::orderSync($order->id);
             $this->mylog($output);
         }
@@ -1146,6 +1148,8 @@ class PfProductImporter extends Module
             'pi_softwareid' => Configuration::get('PI_SOFTWAREID'),            // Variables pour le mapping des champs
             'newproductfields' => $newproductfields,
             'attrgrp' => $attrgrp,
+            'payment_mappings' => $this->loadPaymentMappings(),
+            'active_payment_modules' => $this->getActivePaymentModules(),
         ));
 
         return $this->display(__FILE__, 'views/templates/admin/main_settings.tpl');
@@ -1369,6 +1373,63 @@ class PfProductImporter extends Module
         }
 
         return false;
+    }
+
+    /**
+     * Récupère la liste des modules de paiement actifs
+     */
+    public function getActivePaymentModules()
+    {
+        $paymentModules = array();
+
+        $installedPayments = PaymentModule::getInstalledPaymentModules();
+
+        foreach ($installedPayments as $payment) {
+            if (Module::isEnabled($payment['name'])) {
+                $module = Module::getInstanceByName($payment['name']);
+                if ($module) {
+                    $paymentModules[] = array(
+                        'name' => $payment['name'],
+                        'display_name' => $module->displayName,
+                        'technical_name' => strtoupper($payment['name'])
+                    );
+                }
+            }
+        }
+
+        return $paymentModules;
+    }
+
+    /**
+     * Charge les mappings de paiement
+     */
+    public function loadPaymentMappings()
+    {
+        $json = Configuration::get('PI_PAYMENT_MAPPINGS');
+        return $json ? json_decode($json, true) : array();
+    }
+
+    /**
+     * Sauvegarde les mappings de paiement
+     */
+    public function savePaymentMappings()
+    {
+        $mappings = array();
+
+        if (Tools::isSubmit('payment_mappings')) {
+            $data = Tools::getValue('payment_mappings');
+            foreach ($data as $mapping) {
+                if (!empty($mapping['prestashop']) && !empty($mapping['rezomatic'])) {
+                    $mappings[] = array(
+                        'prestashop' => strtoupper($mapping['prestashop']),
+                        'display_name' => isset($mapping['display_name']) ? $mapping['display_name'] : strtoupper($mapping['prestashop']),
+                        'rezomatic' => strtoupper($mapping['rezomatic'])
+                    );
+                }
+            }
+        }
+
+        return Configuration::updateValue('PI_PAYMENT_MAPPINGS', json_encode($mappings));
     }
 
     /**
@@ -1938,7 +1999,7 @@ class PfProductImporter extends Module
                                 $output .= Vccsv::logError($e);
                             }
                             $linecountadded = $linecountadded + 1;
-                            $output .= "Produit simple $reference cree\n";                            
+                            $output .= "Produit simple $reference cree\n";
                             $reference_field = Configuration::get('PI_PRODUCT_REFERENCE');
                             Db::getInstance()->execute('insert into `' . _DB_PREFIX_ .
                                 'pfi_import_log`(vdate, reference, product_error) value(NOW(), "' .
@@ -2442,8 +2503,7 @@ class PfProductImporter extends Module
                                 $pdv = array_map('trim', $pdv);
                                 $sc = new SoapClient($feedurl, ['keep_alive' => false]);
                                 $stock_pdvs = $sc->getStocksFromCode($softwareid, $reference);
-                                if(isset($stock_pdvs) && isset($stock_pdvs->stockPdv))
-                                {
+                                if (isset($stock_pdvs) && isset($stock_pdvs->stockPdv)) {
                                     if (is_array($stock_pdvs->stockPdv)) {
                                         $stocks = $stock_pdvs->stockPdv;
                                     } else {
@@ -3766,8 +3826,7 @@ class PfProductImporter extends Module
         // Récupérer le contexte
         $context = Context::getContext();
         // Vérifier si un client est connecté pour la mise a jour des bons
-        if ($context->customer->isLogged())
-        {
+        if ($context->customer->isLogged()) {
             $output = CustomerVccsv::loyaltySync($context->customer->id, $context->customer->email);
             self::mylog($output);
         }
