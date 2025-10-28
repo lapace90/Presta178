@@ -190,6 +190,16 @@
         </span>
         <p class="help-block">Importer les soldes de Rezomatic vers PrestaShop par produit</p>
     </div>
+
+    <!-- Synchroniser les soldes depuis -->
+    <div class="form-group">
+        <label class="control-label col-lg-3">Synchroniser les soldes depuis</label>
+        <div class="col-lg-6">
+            <input type="text" name="PI_SYNC_SALES_PDV" value="{$fields_value.PI_SYNC_SALES_PDV}" />
+            <p class="help-block">Obligatoire si l'import des soldes est actif. Entrer l'identifiant magasin Rezomatic.</p>
+        </div>
+    </div>
+
     {if $fields_value.PI_ALLOW_PRODUCTSALESIMPORT}
     <div class="form-group">
         <label class="control-label col-lg-3">Synchronisation manuelle des soldes</label>
@@ -226,14 +236,6 @@
                 <button type="button" class="btn btn-warning" onclick="startSalesSync()">Synchroniser</button>
             </div>
         </div>
-    </div>
-</div>
-
-<!-- Synchroniser les soldes depuis -->
-<div class="form-group">
-    <label class="control-label col-lg-3">Synchroniser les soldes depuis</label>
-    <div class="col-lg-6">
-        <input type="text" name="PI_SYNC_SALES_PDV" value="{$fields_value.PI_SYNC_SALES_PDV}" />
     </div>
 </div>
 

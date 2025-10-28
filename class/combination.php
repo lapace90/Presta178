@@ -373,8 +373,9 @@ WHERE pac.id_product_attribute=' . (int) $id_product_attribute . '
                     null,
                     $Product->$reference_field
                 );
-                $output .= 'Prestashop to Rezomatic : syncCombination ' . $reference_combination . ' updated\n';
-                $output .= print_r((array) $art, true) . '\n';
+                $output .= "Export declinaison \"".$name." ".$taille." ".$couleur."\" (". $reference_combination . ") vers Rezomatic\n";
+                // $output .= 'Prestashop to Rezomatic : syncCombination ' . $reference_combination . ' updated\n';
+                // $output .= print_r((array) $art, true) . '\n';
             } else {
                 $art = $sc->createArticle(
                     $softwareid,
@@ -403,9 +404,10 @@ WHERE pac.id_product_attribute=' . (int) $id_product_attribute . '
                     '',
                     $Product->$reference_field
                 );
-                $output .= 'Prestashop to Rezomatic : syncCombination ' . $reference_combination . ' created\n';
-                $output .= 'EAN ' . $ean . '\n';
-                $output .= print_r((array) $art, true) . '\n';
+                $output .= "Export declinaison \"".$name." ".$taille." ".$couleur."\" (". $reference_combination . ") vers Rezomatic\n";
+                // $output .= 'Prestashop to Rezomatic : syncCombination ' . $reference_combination . ' created\n';
+                // $output .= 'EAN ' . $ean . '\n';
+                // $output .= print_r((array) $art, true) . '\n';
             }
             if ($ean != '') {
                 $free_ean = $sc->isFreeCodeArt($softwareid, $ean);
@@ -605,8 +607,9 @@ WHERE pac.id_product_attribute=' . (int) $id_product_attribute . '
                         $four,
                         $product_parent_reference
                     );
+                    $output .= "Export declinaison \"".$name." ".$taille." ".$couleur."\" (". $reference_combination . ") vers Rezomatic\n";
                     // $output .= 'Prestashop to Rezomatic : combinationSync ' . $reference_combination . ' updated (codeDeclinaison: ' . $product_parent_reference . ')\n';
-                    $output .= print_r((array) $art, true) . '\n';
+                    // $output .= print_r((array) $art, true) . '\n';
                 } else {
                     $art = $sc->createArticle(
                         $softwareid,
@@ -635,8 +638,9 @@ WHERE pac.id_product_attribute=' . (int) $id_product_attribute . '
                         $four,
                         $product_parent_reference
                     );
+                    $output .= "Export declinaison \"".$name." ".$taille." ".$couleur."\" (". $reference_combination . ") vers Rezomatic\n";
                     // $output .= 'Prestashop to Rezomatic : combinationSync ' . $reference_combination . ' created (codeDeclinaison: ' . $product_parent_reference . ')\n';
-                    $output .= print_r((array) $art, true) . '\n';
+                    // $output .= print_r((array) $art, true) . '\n';
                 }
 
                 if ($ean != '') {

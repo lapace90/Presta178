@@ -182,6 +182,7 @@ class ProductVccsv extends Vccsv
         $softwareid = Configuration::get('PI_SOFTWAREID');
         $feedurl = Configuration::get('SYNC_CSV_FEEDURL');
         $cron = Configuration::get('PI_CRON_TASK');
+        $stockimport = Configuration::get('PI_ALLOW_STOCKIMPORT');
         $multistock = Configuration::get('PS_ADVANCED_STOCK_MANAGEMENT');
         $pdv = Configuration::get('SYNC_STOCK_PDV');
         if (!empty($pdv)) {
@@ -191,7 +192,7 @@ class ProductVccsv extends Vccsv
         }
         $page_name = Tools::getValue('controller');
         $output = '';
-        if ($cron && ($multistock != 1) && ($page_name == 'product')) {
+        if ($cron && $stockimport && ($multistock != 1) && ($page_name == 'product')) {
             $sc = new SoapClient($feedurl, ['keep_alive' => false]);
             if ($page_name == 'product') {
                 $id_product = (int) Tools::getValue('id_product');
@@ -253,11 +254,11 @@ class ProductVccsv extends Vccsv
                                 $new_stock
                             ) !== false) {
                                 $output .= 'Stock mis a jour produit ' . $reference . ' : ' .
-                                    $stock_available . ' -> ' . $new_stock . '\n';
+                                    $stock_available . ' -> ' . $new_stock . "\n";
                             } else {
                                 $output .= 'Erreur de mise a jour stock declinaison ' . $c['id_product_attribute']
                                     . ' ' . $reference . ' : ' .
-                                    $stock_available . ' -> ' . $new_stock . '\n';
+                                    $stock_available . ' -> ' . $new_stock . "\n";
                             }
                         } catch (SoapFault $exception) {
                             $output .= Vccsv::logError($exception);
@@ -295,10 +296,10 @@ class ProductVccsv extends Vccsv
                         $new_stock = $stock_rezomatic - $commandecours;
                         if (StockAvailable::setQuantity($id_product, 0, $new_stock) !== false) {
                             $output .= 'Stock mis a jour produit ' . $reference . ' : ' .
-                                $stock_available . ' -> ' . $new_stock . '\n';
+                                $stock_available . ' -> ' . $new_stock . "\n";
                         } else {
                             $output .= 'Erreur de mise a jour stock ' . $id_product . ' ' . $reference . ' : ' .
-                                $stock_available . ' -> ' . $new_stock . '\n';
+                                $stock_available . ' -> ' . $new_stock . "\n";
                         }
                     } catch (SoapFault $exception) {
                         $output .= Vccsv::logError($exception);
@@ -500,7 +501,7 @@ class ProductVccsv extends Vccsv
                             $lots_crees++;
                         } else {
                             $lots_erreurs++;
-                            $output .= "Erreur création lot: $pack_code\n";
+                            $output .= "Erreur creation du lot: $pack_code\n";
                             continue;
                         }
                     } else {
@@ -591,14 +592,12 @@ class ProductVccsv extends Vccsv
             }
 
             // Résumé final (affiché seulement s'il y a eu des lots traités)
-            $output .= "--- RESUME ---\n";
             $output .= "Lots traites: $lots_traites\n";
             $output .= "Lots crees: $lots_crees\n";
             $output .= "Lots mis a jour: $lots_mis_a_jour\n";
             if ($lots_erreurs > 0) {
                 $output .= "Erreurs: $lots_erreurs\n";
             }
-            $output .= "=== FIN IMPORT LOTS ===\n";
         } catch (SoapFault $exception) {
             $lots_erreurs++;
             $output .= "Erreur SOAP: " . Vccsv::logError($exception);
@@ -657,7 +656,7 @@ class ProductVccsv extends Vccsv
                         $clean_path = trim(preg_replace('/\s{2,}/', ' ', $clean_path));
                         // Séparation des niveaux de hiérarchie (utilise " > " comme séparateur)
                         $hierarchy_levels = array_map('trim', explode('>', $clean_path));
-                        $output .= print_r($hierarchy_levels, true) . '\n';
+                        // $output .= print_r($hierarchy_levels, true) . "\n";
                         if (isset($hierarchy_levels[0])) $rayon = $hierarchy_levels[0];
                         if (isset($hierarchy_levels[1])) $fam = $hierarchy_levels[1];
                         if (isset($hierarchy_levels[2])) $sfam = $hierarchy_levels[2];
@@ -771,8 +770,8 @@ class ProductVccsv extends Vccsv
 
                     );
 
-                    $output .= parent::l('Product') . ' ' . $reference . ' ' . parent::l('updated') . ' -> ' . $reference . '\n';
-                    $output .= print_r((array) $art, true) . '\n';
+                    $output .= "Export article \"".$name."\" (". $reference . ") vers Rezomatic\n";
+                    // $output .= print_r((array) $art, true) . '\n';
                 } else {
                     $art = $sc->createArticle(
                         $softwareid,
@@ -801,8 +800,8 @@ class ProductVccsv extends Vccsv
                         $four
 
                     );
-                    $output .= parent::l('Product') . ' ' . $reference . ' ' . parent::l('created') . ' -> ' . $condition . '\n';
-                    $output .= print_r((array) $art, true) . '\n';
+                    $output .= "Export article \"".$name."\" (". $reference . ") vers Rezomatic\n";
+                    // $output .= print_r((array) $art, true) . '\n';
                 }
 
                 if ($ean != '') {
@@ -915,7 +914,7 @@ class ProductVccsv extends Vccsv
                     echo '=================================================<br/>';
                     flush();
                 }
-                $output .= "\n=== EXPORT CATALOGUE TERMINÉ ===\n";
+                // $output .= "\n=== EXPORT CATALOGUE TERMINÉ ===\n";
                 $output .= "Produits traités : {$processed_count}\n";
                 $output .= "Produits exportés : {$exported_count}\n";
                 if ($error_count > 0) {

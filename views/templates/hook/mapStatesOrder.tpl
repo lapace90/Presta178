@@ -3,10 +3,6 @@
 * Template personnalisé pour les associations des états des commandes
 *}
 <div class="import-form">
-    <h2 class="form-title">
-        Association des états des commandes
-    </h2>
-
     <p>Associez les états des commandes Rezomatic aux états des commandes de PrestaShop. Cela permet de garantir que les commandes importées reflètent correctement leur statut dans votre boutique.</p>
     
     <div class="alert alert-info">

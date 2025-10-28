@@ -34,17 +34,18 @@ class OrderVccsv extends Vccsv
      */
     public static function orderSync($id_order)
     {
+        if(empty($id_order))
+            return;
         $allow_orderexport = Configuration::get('PI_ALLOW_ORDEREXPORT');
         $softwareid = Configuration::get('PI_SOFTWAREID');
         $onlyvalid = Configuration::get('PI_VALID_ORDER_ONLY');
-        $output = 'Order - ' . (int) $id_order . ' - ';
+        $output = "";
         $order = new Order($id_order);
         $products = $order->getProductsDetail();
         if (!$allow_orderexport) {
-            $output .= parent::l('Order export not allowed') . '\n';
             return $output;
         } elseif (empty($products)) {
-            $output .= parent::l('Order empty') . ' ' . $id_order . '\n';
+            $output .= "Erreur : la commande est vide.\n";
         } else {
             $feedurl = Configuration::get('SYNC_CSV_FEEDURL');
             try {
@@ -63,7 +64,7 @@ class OrderVccsv extends Vccsv
                         // Export de la commande
                         $neworderid = $sc->getNextCommandeNum($softwareid);
                         $pdv = Configuration::get('SYNC_STOCK_PDV');
-                        $output .= 'Next order num : ' . $neworderid . '\n';
+                        $output .= "=== EXPORT COMMANDE " . (int) $id_order . " (TWS ".$neworderid.") ===\n";
                         foreach ($products as $product) {
                             // Si c'est un Pack, champs reference uniquement
                             if (Pack::isPack($product['product_id'])) {
@@ -90,12 +91,11 @@ class OrderVccsv extends Vccsv
                                 $total_price_tax_incl,
                                 $pdv
                             );
-                            $output .= parent::l('Product') . ' ' . $product_reference . ' ' .
-                                        parent::l('added. Total price :') . ' ' . $total_price_tax_incl . ' ' .
-                                        parent::l('Quantity') . ' : ' . $product_quantity . ' ' . parent::l('Unit price') .
-                                        ' ' . $unit_price_tax_incl . '\n';
+                            $output .= "Ajout article ".$product_reference.
+                                        ", prix unitaire ".$unit_price_tax_incl.
+                                        ", qte ".$product_quantity.
+                                        ", prix total ".$total_price_tax_incl."\n";
                         }
-                        $output .= parent::l('Order') . ' ' . $id_order . ' (' . $neworderid . ') ' . parent::l('created') . '\n';
                         // Remise
                         $codes = self::getCartRulesRezomatic($id_order);
                         foreach ($codes as $code) {
@@ -112,50 +112,50 @@ class OrderVccsv extends Vccsv
                             } else {
                                 $sc->addbonremise($softwareid, $neworderid, $api_customerid, $code_amount, $pdv);
                             }
-                            $output .= parent::l('Discount') . ' ' . $code_amount . ' - ' . $code_detail . ' - ' .
-                                        parent::l('created') . '\n';
+                            $output .= "Ajout bon de remise " . $code_amount . ' - ' . $code_detail . "\n";
                         }
                         // HT ?
                         if (($order->total_paid_tax_incl > 0)
                             && ($order->total_paid_tax_incl == $order->total_paid_tax_excl)) {
                             $sc->setModeHT($softwareid, $neworderid, $api_customerid, $pdv);
+                            $output .= "Ajout Mode HT\n";
                         }
                         // Port
                         $shippingamount = $order->total_shipping_tax_incl;
                         $sc->addFraisPort($softwareid, $neworderid, $api_customerid, $shippingamount, $pdv);
-                        $output .= parent::l('Shipping') . ' ' . $shippingamount . ' ' . parent::l('created') . '\n';
+                        $output .= "Ajout frais de port $shippingamount \n";
                         // Ref.
                         $sc->addNote($softwareid, $neworderid, 'Ref. ' . $order->reference);
                         // Payment
-                        $paymentmethod = Tools::strtoupper(Tools::replaceAccentedChars($order->payment));
-                        if (($rg = Configuration::get('PI_RG1'))
+                        $paymentmethod = Tools::strtoupper(trim(Tools::replaceAccentedChars($order->payment)));
+                        if (($rg = trim(Configuration::get('PI_RG1')))
                             && (!empty($rg)) && (Tools::strtoupper($rg) == $paymentmethod)) {
                             $paymentmethod = 'RG1';
-                        } elseif (($rg = Configuration::get('PI_RG2'))
+                        } elseif (($rg = trim(Configuration::get('PI_RG2')))
                             && (!empty($rg)) && (Tools::strtoupper($rg) == $paymentmethod)) {
                             $paymentmethod = 'RG2';
-                        } elseif (($rg = Configuration::get('PI_RG3'))
+                        } elseif (($rg = trim(Configuration::get('PI_RG3')))
                             && (!empty($rg)) && (Tools::strtoupper($rg) == $paymentmethod)) {
                             $paymentmethod = 'RG3';
-                        } elseif (($rg = Configuration::get('PI_RG4'))
+                        } elseif (($rg = trim(Configuration::get('PI_RG4')))
                             && (!empty($rg)) && (Tools::strtoupper($rg) == $paymentmethod)) {
                             $paymentmethod = 'RG4';
-                        } elseif (($rg = Configuration::get('PI_RG5'))
+                        } elseif (($rg = trim(Configuration::get('PI_RG5')))
                             && (!empty($rg)) && (Tools::strtoupper($rg) == $paymentmethod)) {
                             $paymentmethod = 'RG5';
-                        } elseif (($rg = Configuration::get('PI_RG6'))
+                        } elseif (($rg = trim(Configuration::get('PI_RG6')))
                             && (!empty($rg)) && (Tools::strtoupper($rg) == $paymentmethod)) {
                             $paymentmethod = 'RG6';
-                        } elseif (($rg = Configuration::get('PI_RG7'))
+                        } elseif (($rg = trim(Configuration::get('PI_RG7')))
                             && (!empty($rg)) && (Tools::strtoupper($rg) == $paymentmethod)) {
                             $paymentmethod = 'RG7';
-                        } elseif (($rg = Configuration::get('PI_RG8'))
+                        } elseif (($rg = trim(Configuration::get('PI_RG8')))
                             && (!empty($rg)) && (Tools::strtoupper($rg) == $paymentmethod)) {
                             $paymentmethod = 'RG8';
-                        } elseif (($rg = Configuration::get('PI_RG9'))
+                        } elseif (($rg = trim(Configuration::get('PI_RG9')))
                             && (!empty($rg)) && (Tools::strtoupper($rg) == $paymentmethod)) {
                             $paymentmethod = 'RG9';
-                        } elseif (($rg = Configuration::get('PI_RG10'))
+                        } elseif (($rg = trim(Configuration::get('PI_RG10')))
                             && (!empty($rg)) && (Tools::strtoupper($rg) == $paymentmethod)) {
                             $paymentmethod = 'RG10';
                         } elseif (in_array($paymentmethod, ['CHEQUE', 'BANK WIRE', 'PAYMENT BY CHECK'])) {
@@ -173,7 +173,7 @@ class OrderVccsv extends Vccsv
                             $paymentmethod = 'CB';
                         }
                         $sc->addModeReglement($softwareid, $neworderid, $api_customerid, $paymentmethod, $pdv);
-                        $output .= parent::l('Payment added') . ' ' . $paymentmethod . '\n';
+                        $output .= "Ajout mode de reglement $paymentmethod \n";
                         $array_data = [
                             'system_orderid' => (int) $id_order,
                             'api_orderid' => (int) $neworderid,
@@ -181,10 +181,8 @@ class OrderVccsv extends Vccsv
                         $api_orderid = $neworderid;
                         Db::getInstance()->insert('pfi_order_apisync', $array_data);
                     } else {
-                        $output .= 'Customer error : ' . $order->id_customer . '\n';
+                        $output .= 'Erreur creation client : ' . $order->id_customer . "\n";
                     }
-                } else {
-                    $output .= parent::l('Order already created') . ' ' . $id_order . '\n';
                 }
                 // Valid Order
                 if ((!$onlyvalid) && $order->valid) {
@@ -218,10 +216,10 @@ class OrderVccsv extends Vccsv
                 'pfi_order_apisync where system_orderid=' . (int) $id_order);
             if ($api_orderid) {
                 if ($sc->annuleCommande($softwareid, $api_orderid)) {
-                    $output .= 'Order ' . $id_order . ' (' . $api_orderid . ') cancelled\n';
+                    $output .= 'Commande ' . $id_order . ' (' . $api_orderid . ') annulee'."\n";
                 }
             } else {
-                $output .= 'Order ' . $id_order . ' (' . $api_orderid . ') does not exist\n';
+                $output .= 'Commande ' . $id_order . ' (' . $api_orderid . ') inconnue'."\n";
             }
         } catch (SoapFault $exception) {
             $output .= Vccsv::logError($exception);

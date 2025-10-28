@@ -7,8 +7,6 @@
 *}
 
 <div class="import-form">
-    <h2 class="form-title">Associer les champs du FLUX et du système</h2>
-
     <form method="post">
         <input type="hidden" size="100" name="vcfeedurl" value="{$feedurl|escape:'htmlall':'UTF-8'}" />
 
@@ -20,8 +18,8 @@
             <table class="category-table table striped">
                 <thead class="thead-primary">
                     <tr>
-                        <th width="50%">Champs du flux</th>
-                        <th width="50%">Champs du système</th>
+                        <th width="50%">Champs Rezomatic</th>
+                        <th width="50%">Champs Prestashop</th>
                     </tr>
                 </thead>
                 <tbody>

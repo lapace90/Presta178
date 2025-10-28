@@ -177,8 +177,8 @@ class CustomerVccsv extends Vccsv
                             $newsletter,
                             $newsletter
                         );
-                        $output .= parent::l('Customer') . ' ' . $id_customer . ' ' . parent::l('exported') . '\n';
-                        $output .= print_r((array) $cli, true) . '\n';
+                        $output .= "Export du client ".$name." (".$id_customer."), ".$email." vers Rezomatic.\n";
+                        // $output .= print_r((array) $cli, true) . "\n";
                     } catch (SoapFault $exception) {
                         $output .= Vccsv::logError($exception);
                         $api_customerid = false; // Reset pour tenter une création
@@ -226,8 +226,8 @@ class CustomerVccsv extends Vccsv
                             $newsletter,
                             $newsletter
                         );
-                        $output .= parent::l('Customer') . ' ' . $api_customerid . ' ' . parent::l('created') . '\n';
-                        $output .= print_r((array) $cli, true) . '\n';
+                        $output .= "Export du client ".$name." (".$id_customer."), ".$email." vers Rezomatic.\n";
+                        // $output .= print_r((array) $cli, true) . "\n";
                     } catch (SoapFault $exception) {
                         $output .= Vccsv::logError($exception);
                         $api_customerid = false;
@@ -462,9 +462,9 @@ class CustomerVccsv extends Vccsv
                                     $bon->valeur,
                                     $bon->codeBon
                                 )) {
-                                    $output .= 'Coupon ' . $bon->codeBon . ' added\n';
+                                    $output .= 'Creation Bon de remise ' . $bon->codeBon . "\n";
                                 } else {
-                                    $output .= 'Coupon ' . $bon->codeBon . ' not added\n';
+                                    $output .= 'Pas de creation du bon de remise ' . $bon->codeBon . "\n";
                                 }
                             }
                         } else {
@@ -474,14 +474,10 @@ class CustomerVccsv extends Vccsv
                                     pSQL($bon->codeBon) . '\'';
                                 Db::getInstance()->Execute($sql);
                             }
-                            $output .= 'Coupon ' . $bon->codeBon . ' exists\n';
+                            $output .= 'Mise a jour du bon ' . $bon->codeBon . "\n";
                         }
                     }
-                } else {
-                    $output .= 'No coupon for customer ' . $email_customer . ' !\n';
                 }
-            } else {
-                $output = 'No customer for mail ' . $email_customer . ' !\n';
             }
         } catch (SoapFault $exception) {
             $output = Vccsv::logError($exception);
@@ -556,7 +552,7 @@ class CustomerVccsv extends Vccsv
                     // === VALIDATION EMAIL (première barrière anti-doublons) ===
                     $email = trim($customerlist['mail']);
                     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-                        $output .= parent::l('Invalid email') . ' : ' . $email . "\n";
+                        $output .= 'Adresse e-mail invalide : ' . $email . "\n";
                         $clients_errors++;
                         continue; // Passage au client suivant
                     }
@@ -613,7 +609,7 @@ class CustomerVccsv extends Vccsv
 
                         if ($update_success) {
                             $clients_updated++;
-                            $output .= 'Customer imported: ' . $email . ' (ID: ' . $customer_id . ')' . "\n";
+                            $output .= 'Client mis a jour : ' . $email . ' (ID: ' . $customer_id . ')' . "\n";
 
                             // Mise à jour de l'adresse associée
                             self::updateCustomerAddress($customer_id, [
@@ -629,7 +625,7 @@ class CustomerVccsv extends Vccsv
                             ]);
                         } else {
                             $clients_errors++;
-                            $output .= 'Error updating customer: ' . $email . "\n";
+                            $output .= 'Erreur mise a jour client : ' . $email . "\n";
                         }
 
                         // Création/mise à jour de la liaison API
@@ -665,10 +661,10 @@ class CustomerVccsv extends Vccsv
 
                             if ($update_success) {
                                 $clients_updated++;
-                                $output .= 'Customer updated via sync: ' . $email . ' (ID: ' . $customer_id . ')' . "\n";
+                                $output .= 'Client mis a jour : ' . $email . ' (ID: ' . $customer_id . ')' . "\n";
                             } else {
                                 $clients_errors++;
-                                $output .= 'Error updating customer via sync: ' . $email . "\n";
+                                $output .= 'Erreur mise a jour client : ' . $email . "\n";
                             }
                         } else {
                             // === COUCHE 3 : Double-check anti-concurrence ===
@@ -679,7 +675,7 @@ class CustomerVccsv extends Vccsv
                                 // Un autre processus a créé le client pendant notre traitement
                                 $customer_id = $double_check;
                                 $clients_updated++;
-                                $output .= 'Customer found during double-check: ' . $email . ' (ID: ' . $customer_id . ')' . "\n";
+                                $output .= 'Client mis a jour : ' . $email . ' (ID: ' . $customer_id . ')' . "\n";
                             } else {
                                 // === CRÉATION D'UN NOUVEAU CLIENT ===
                                 $customer = new Customer();
@@ -705,7 +701,7 @@ class CustomerVccsv extends Vccsv
                                     // $customer->add(false); // Enregistrement sans validation pour éviter les erreurs
                                     $customer_id = $customer->id;
                                     $clients_created++;
-                                    $output .= 'Customer imported: ' . $email . ' (ID: ' . $customer_id . ')' . "\n";
+                                    $output .= 'Client cree : ' . $email . ' (ID: ' . $customer_id . ')' . "\n";
 
                                     // === CRÉATION DE L'ADRESSE ASSOCIÉE ===
                                     $address = new Address();
@@ -724,11 +720,11 @@ class CustomerVccsv extends Vccsv
                                     try {
                                         $address->add();
                                     } catch (Exception $e) {
-                                        $output .= 'Address creation error: ' . $e->getMessage() . "\n";
+                                        $output .= 'Erreur creation adresse client : ' . $e->getMessage() . "\n";
                                     }
                                 } catch (Exception $e) {
                                     $clients_errors++;
-                                    $output .= 'Customer creation error: ' . $e->getMessage() . "\n";
+                                    $output .= 'Erreur creation client : ' . $e->getMessage() . "\n";
                                     continue; // Passage au client suivant
                                 }
                             }
@@ -751,8 +747,6 @@ class CustomerVccsv extends Vccsv
                 // TOUJOURS remettre les flags, même en cas d'erreur
                 Configuration::set('PI_ALLOW_CUSTOMEREXPORT', $allow_customerexport);
             }
-        } else {
-            $output .= 'Customer import not allowed' . "\n";
         }
 
         // === SAUVEGARDE DES STATISTIQUES POUR LE MONITORING ===

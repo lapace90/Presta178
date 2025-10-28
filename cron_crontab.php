@@ -36,17 +36,18 @@ if (Tools::getIsset('secure_key')) {
             $output = '<u>EXECUTION CRON v' . $pfproductimporter->version
                     . ' sur Prestashop v' . _PS_VERSION_
                     . ' depuis ' . $_SERVER['REMOTE_ADDR']
-                    . ' (Last: ' . Configuration::get('PI_LAST_CRON') . ')</u>\n';
+                    . ' (Last: ' . Configuration::get('PI_LAST_CRON') . ')</u>'."\n";
             
             if ($allow_productimport == 1) {
                 // DELETE ARTICLES
                 $output .= $pfproductimporter->deleteArticle();
                 // UPDATE ARTICLES
                 $pfproductimporter->cronjobimportsavetempdata();
-                $output .= $pfproductimporter->cronjobfinalimport();
+                $output .= "=== IMPORT CATALOGUE ===\n".$pfproductimporter->cronjobfinalimport();
             }
             // UPDATE STOCKS
-            $output .= $pfproductimporter->stockSyncCron();
+            if (Configuration::get('PI_ALLOW_STOCKIMPORT') == 1)
+                $output .= "=== IMPORT STOCKS ===\n".$pfproductimporter->stockSyncCron();
             // UPDATE LOTS
             if ($allow_productimport == 1) {
                 $output .= $pfproductimporter->cronjobimportlot();
@@ -54,30 +55,33 @@ if (Tools::getIsset('secure_key')) {
             // UPDATE SOLDES
             if ((Configuration::get('PI_ALLOW_PRODUCTSALESIMPORT') == '1')
                 && in_array(date('H'), ['08', '00'])) {
-                $output .= $pfproductimporter->salesSyncCron();
+                $output .= "=== IMPORT SOLDES ===\n".$pfproductimporter->salesSyncCron();
             }
             if ($allow_customerimport == 1) {
                 // DELETE CLIENTS
                 $output .= $pfproductimporter->deleteCustomer();
                 // UPDATE CLIENTS
-                $output .= CustomerVccsv::importCustomer();
+                $output .= "=== IMPORT CLIENTS ===\n".CustomerVccsv::importCustomer();
             }
             
             // EXPORT PRODUITS
             if ($allow_productexport == 1) {
-                $output .= ProductVccsv::exportAll(1); // iscron = 1
+                $output .= "=== EXPORT CATALOGUE ===\n".ProductVccsv::exportAll(1); // iscron = 1
             }
             
             // UPDATE COMMANDES
             if (Configuration::get('PI_UPDATE_ORDER_STATUS') == '1') {
-                $output .= $pfproductimporter->orderStatusSyncCron();
+                $output .= "=== MISE A JOUR COMMANDES ===\n".$pfproductimporter->orderStatusSyncCron();
             }
             // UPDATE LAST CRON
             $lastcron = strtotime($lastcron);
             Configuration::updateValue('PI_LAST_CRON', date('Y-m-d H:i:s', $lastcron));
             // BENCHMARK
             $fin = time();
-            $pfproductimporter->mylog($output . "\n" . ($fin - $debut) . 's.');
+            $output .= "\n" . ($fin - $debut) . 's.';
+            $pfproductimporter->mylog($output);
+            // AFFICHAGE DU RAPPORT
+            echo str_replace("\n", "<br />", $output);
         }
     }
 }

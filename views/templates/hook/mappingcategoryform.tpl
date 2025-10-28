@@ -1,8 +1,4 @@
 <div class="import-form">
-    <h2 class="form-title">
-        Associer les catégories
-    </h2>
-
     <form action="" method="post" id="category-mapping-form">
         <input type="hidden" size="100" name="feedurl" value="{$feedurl|escape:'htmlall':'UTF-8'}" />
         <input type="hidden" name="feedid" value="{$feedid|escape:'htmlall':'UTF-8'}" />

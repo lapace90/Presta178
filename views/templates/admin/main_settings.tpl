@@ -37,9 +37,14 @@
                     Catalogue
                 </a>
             </li>
+            <li role="presentation" class="{if $active_tab == 'stock'}active{/if}">
+                <a href="#stock_tab" aria-controls="stock" role="tab" data-toggle="tab">
+                    Stock
+                </a>
+            </li>
             <li role="presentation" class="{if $active_tab == 'mapping'}active{/if}">
                 <a href="#mapping_tab" aria-controls="mapping" role="tab" data-toggle="tab">
-                    Associations
+                    Correspondances
                 </a>
             </li>
             <li role="presentation" class="{if $active_tab == 'customer'}active{/if}">
@@ -55,6 +60,11 @@
             <li role="presentation" class="{if $active_tab == 'payment'}active{/if}">
                 <a href="#payment_tab" aria-controls="payment" role="tab" data-toggle="tab">
                     Paiements
+                </a>
+            </li>
+            <li role="presentation" class="{if $active_tab == 'cron'}active{/if}">
+                <a href="#cron_tab" aria-controls="stock" role="tab" data-toggle="tab">
+                    CRON
                 </a>
             </li>
             <li role="presentation" class="{if $active_tab == 'logs'}active{/if}">
@@ -86,23 +96,33 @@
                 </div>
             </div>
 
+            <!-- Onglet Stock -->
+            <div role="tabpanel" class="tab-pane {if $active_tab == 'stock'}active{/if}" id="stock_tab">
+                {include file="module:pfproductimporter/views/templates/admin/stock_settings.tpl"}
+                <div class="panel-footer">
+                    <button type="submit" name="SubmitSaveMainSettings" class="btn btn-default pull-right">
+                        <i class="process-icon-save"></i> Sauvegarder les paramètres
+                    </button>
+                </div>
+            </div>
+
             <!-- Onglet Mapping -->
             <div role="tabpanel" class="tab-pane {if $active_tab == 'mapping'}active{/if}" id="mapping_tab">
                 <!-- Sous-onglets -->
-                <ul class="nav nav-tabs" role="tablist" style="margin-bottom: 20px;">
+                <ul class="nav nav-tabs" role="tablist">
                     <li role="presentation" class="active">
                         <a href="#fields_mapping" aria-controls="fields" role="tab" data-toggle="tab">
-                            Association des champs
+                            Correspondance des champs produits
                         </a>
                     </li>
                     <li role="presentation">
                         <a href="#category_mapping" aria-controls="category" role="tab" data-toggle="tab">
-                            Association des catégories
+                            Correspondance des catégories
                         </a>
                     </li>
                     <li role="presentation">
                         <a href="#states_mapping" aria-controls="states-order" role="tab" data-toggle="tab">
-                            Association des états des commandes
+                            Correspondance des états des commandes
                         </a>
                     </li>
                 </ul>
@@ -112,67 +132,73 @@
                     <!-- Sous-onglet Fields Mapping -->
                     <div role="tabpanel" class="tab-pane active" id="fields_mapping">
                         <div class="form-section">
-                            <h3>Configuration de l'association des champs</h3>
-                                {if isset($raw_products_arr) && is_array($raw_products_arr)}
-
-                                    {include file="module:pfproductimporter/views/templates/hook/buildmappingfieldsform.tpl"}
-
-                                {else}
-                                    <p>Aucun champ disponible pour l'association.</p>
-                                {/if}
-                            </div>
-                        </div>
-
-                        <!-- Sous-onglet Category Mapping -->
-                        <div role="tabpanel" class="tab-pane" id="category_mapping">
-                            <div class="form-section">
-                                <h3>Configuration de l'association des catégories</h3>
-                                    {if isset($final_products_arr) && is_array($final_products_arr)}
-
-                                        {include file="module:pfproductimporter/views/templates/hook/mappingcategoryform.tpl"}
-
-                                    {else}
-                                        <p>Aucune catégorie disponible pour l'association.</p>
-                                    {/if}
-                                </div>
-                            </div>
-
-                            <!-- Sous-onglet States Mapping -->
-                            <div role="tabpanel" class="tab-pane" id="states_mapping">
-                                <div class="form-section">
-                                    {include file="module:pfproductimporter/views/templates/hook/mapStatesOrder.tpl"}
-                                </div>
-                            </div>
+                            {if isset($raw_products_arr) && is_array($raw_products_arr)}
+                                {include file="module:pfproductimporter/views/templates/hook/buildmappingfieldsform.tpl"}
+                            {else}
+                                <p>Aucun champ disponible.</p>
+                            {/if}
                         </div>
                     </div>
 
-                    <!-- Onglet Customers -->
-                    <div role="tabpanel" class="tab-pane {if $active_tab == 'customer'}active{/if}" id="customer_tab">
-                        {include file="module:pfproductimporter/views/templates/admin/customer_settings.tpl"}
-                        <div class="panel-footer">
-                            <button type="submit" name="SubmitSaveMainSettings" class="btn btn-default pull-right">
-                                <i class="process-icon-save"></i> Enregistrer paramètres clients
-                            </button>
+                    <!-- Sous-onglet Category Mapping -->
+                    <div role="tabpanel" class="tab-pane" id="category_mapping">
+                        <div class="form-section">
+                            {if isset($final_products_arr) && is_array($final_products_arr)}
+                                {include file="module:pfproductimporter/views/templates/hook/mappingcategoryform.tpl"}
+                            {else}
+                                <p>Aucune catégorie disponible.</p>
+                            {/if}
                         </div>
                     </div>
 
-                    <!-- Onglet Orders -->
-                    <div role="tabpanel" class="tab-pane {if $active_tab == 'order'}active{/if}" id="order_tab">
-                        {include file="module:pfproductimporter/views/templates/admin/order_settings.tpl"}
-                        <div class="panel-footer">
-                            <button type="submit" name="SubmitExportorder" class="btn btn-default pull-right">
-                                <i class="process-icon-save"></i> Exporter les commandes
-                            </button>
+                    <!-- Sous-onglet States Mapping -->
+                    <div role="tabpanel" class="tab-pane" id="states_mapping">
+                        <div class="form-section">
+                            {include file="module:pfproductimporter/views/templates/hook/mapStatesOrder.tpl"}
                         </div>
                     </div>
+                </div>
+            </div>
 
-                    <!-- Onglet Payment -->
-                    <div role="tabpanel" class="tab-pane {if $active_tab == 'payment'}active{/if}" id="payment_tab">
-                        {include file="module:pfproductimporter/views/templates/admin/payment_settings.tpl"}
-                        <div class="panel-footer">
-                            <button type="submit" name="Submitdirectimport" class="btn btn-default pull-right">
-                                <i class="process-icon-save"></i> Lancer l'import des paiements
+            <!-- Onglet Customers -->
+            <div role="tabpanel" class="tab-pane {if $active_tab == 'customer'}active{/if}" id="customer_tab">
+                {include file="module:pfproductimporter/views/templates/admin/customer_settings.tpl"}
+                <div class="panel-footer">
+                    <button type="submit" name="SubmitSaveMainSettings" class="btn btn-default pull-right">
+                        <i class="process-icon-save"></i> Enregistrer paramètres clients
                     </button>
+                </div>
+            </div>
+
+            <!-- Onglet Orders -->
+            <div role="tabpanel" class="tab-pane {if $active_tab == 'order'}active{/if}" id="order_tab">
+                {include file="module:pfproductimporter/views/templates/admin/order_settings.tpl"}
+                <div class="panel-footer">
+                    <button type="submit" name="SubmitExportorder" class="btn btn-default pull-right">
+                        <i class="process-icon-save"></i> Exporter les commandes
+                    </button>
+                </div>
+            </div>
+
+            <!-- Onglet Payment -->
+            <div role="tabpanel" class="tab-pane {if $active_tab == 'payment'}active{/if}" id="payment_tab">
+                {include file="module:pfproductimporter/views/templates/admin/payment_settings.tpl"}
+                <div class="panel-footer">
+                    <button type="submit" name="Submitdirectimport" class="btn btn-default pull-right">
+                        <i class="process-icon-save"></i> Enregistrer les paiements
+                    </button>
+                </div>
+            </div>
+
+            <!-- Onglet CRON -->
+            <div role="tabpanel" class="tab-pane {if $active_tab == 'cron'}active{/if}" id="cron_tab">
+                <div class="form-section">
+                    {include file="module:pfproductimporter/views/templates/admin/cron.tpl"}
+                    <div class="panel-footer">
+                        <button type="submit" name="SubmitSaveMainSettings" class="btn btn-default pull-right">
+                            <i class="process-icon-save"></i> Sauvegarder les paramètres
+                        </button>
+                    </div>                    
                 </div>
             </div>
 
@@ -180,8 +206,8 @@
             <div role="tabpanel" class="tab-pane {if $active_tab == 'logs'}active{/if}" id="logs_tab">
                 <div class="form-section">
                     {include file="module:pfproductimporter/views/templates/admin/logs.tpl"}
-                        </div>
-                    </div>
+                </div>
+            </div>
             </form>
         </div>
 

@@ -39,11 +39,11 @@ class PfProductImporter extends Module
     {
         $this->name = 'pfproductimporter';
         $this->tab = 'migration_tools';
-        $this->version = '2.7.0';
+        $this->version = '2.7.1';
         $this->author = 'Definima/TGM';
         $this->ps_versions_compliancy = [
             'min' => '1.6.0.4',
-            'max' => '8.99.99',
+            'max' => '9.99.99',
         ];
         parent::__construct();
         $this->displayName = $this->l('Rezomatic Synchronization');
@@ -377,9 +377,11 @@ class PfProductImporter extends Module
      */
     public function hookActionProductAdd($params)
     {
-        $id_product = $params['id_product'];
-        $output = ProductVccsv::productSync($id_product);
-        $this->mylog($output);
+        if(!empty($params['id_product']))
+        {
+            $output = ProductVccsv::productSync($params['id_product']);
+            $this->mylog($output);
+        }
     }
 
     /**
@@ -394,16 +396,14 @@ class PfProductImporter extends Module
      */
     public function hookActionProductUpdate($params)
     {
-        $id_product = $params['id_product'];
-        $output = ProductVccsv::productSync($id_product);
-        // Export des declinaisons
-        $reference_field = Configuration::get('PI_PRODUCT_REFERENCE');
-        $allow_productexport = Configuration::get('PI_ALLOW_PRODUCTEXPORT');
-
-        if ($allow_productexport == 1) {
-            if ($this->isPrestashop16()) {
+        if(!empty($params['id_product']))
+        {
+            $output = ProductVccsv::productSync($params['id_product']);
+            // Cas particulier Prestashop 1.6
+            if (($this->isPrestashop16()) && (Configuration::get('PI_ALLOW_PRODUCTEXPORT') == 1)) {
+                $reference_field = Configuration::get('PI_PRODUCT_REFERENCE');
                 $output .= CombinationVccsv::syncCombination(
-                    $id_product,
+                    $params['id_product'],
                     Tools::getValue('attribute_' . $reference_field),
                     Tools::getValue('attribute_ean13'),
                     Tools::getValue('attribute_wholesale_price'),
@@ -413,8 +413,8 @@ class PfProductImporter extends Module
                     Tools::getValue('attribute_combination_list')
                 );
             }
-        }
-        $this->mylog($output);
+            $this->mylog($output);
+        }        
     }
 
     /**
@@ -443,9 +443,14 @@ class PfProductImporter extends Module
      */
     public function hookActionCustomerAccountAdd($params)
     {
-        $id_customer = $this->context->cookie->id_customer;
-        $output = CustomerVccsv::customerSync($id_customer);
-        $this->mylog($output);
+        // Récupérer le contexte
+        $context = Context::getContext();
+        // Vérifier si un client est connecté pour la mise a jour des bons
+        if ($context->customer->isLogged())
+        {
+            $output = CustomerVccsv::customerSync($context->customer->id);
+            self::mylog($output);
+        }
     }
 
     /**
@@ -457,9 +462,14 @@ class PfProductImporter extends Module
      */
     public function hookActionCustomerAccountUpdate($params)
     {
-        $id_customer = $this->context->cookie->id_customer;
-        $output = CustomerVccsv::customerSync($id_customer);
-        $this->mylog($output);
+        // Récupérer le contexte
+        $context = Context::getContext();
+        // Vérifier si un client est connecté pour la mise a jour des bons
+        if ($context->customer->isLogged())
+        {
+            $output = CustomerVccsv::customerSync($context->customer->id);
+            self::mylog($output);
+        }
     }
 
     /**
@@ -471,8 +481,11 @@ class PfProductImporter extends Module
      */
     public function hookActionObjectCustomerUpdateAfter($params)
     {
-        $output = CustomerVccsv::customerSync($params['object']->id);
-        $this->mylog($output);
+        if (!empty($params['object']->id))
+        {
+            $output = CustomerVccsv::customerSync($params['object']->id);
+            $this->mylog($output);
+        }
     }
 
     /**
@@ -484,10 +497,14 @@ class PfProductImporter extends Module
      */
     public function hookActionAuthentication($params)
     {
-        $id_customer = $this->context->cookie->id_customer;
-        $email_customer = $this->context->cookie->email;
-        $output = CustomerVccsv::loyaltySync($id_customer, $email_customer);
-        $this->mylog($output);
+        // Récupérer le contexte
+        $context = Context::getContext();
+        // Vérifier si un client est connecté pour la mise a jour des bons
+        if ($context->customer->isLogged())
+        {
+            $output = CustomerVccsv::loyaltySync($context->customer->id, $context->customer->email);
+            self::mylog($output);
+        }
     }
 
     /**
@@ -499,9 +516,12 @@ class PfProductImporter extends Module
      */
     public function hookActionValidateOrder($params)
     {
-        $order = $params['order'];
-        $output = OrderVccsv::orderSync($order->id);
-        $this->mylog($output);
+        // $this->mylog("hookActionValidateOrder:".print_r($params['order'], true));
+        if (isset($params['order']) && isset($params['order']->id))
+        {
+            $output = OrderVccsv::orderSync($order->id);
+            $this->mylog($output);
+        }
     }
 
     /**
@@ -513,6 +533,7 @@ class PfProductImporter extends Module
      */
     public function hookActionOrderStatusUpdate($params)
     {
+        // $this->mylog("hookActionOrderStatusUpdate:".print_r($params, true));
         $order_id = $params['id_order'];
         $order_newstatus = $params['newOrderStatus']->id;
         if ($order_newstatus == 6) {
@@ -688,11 +709,11 @@ class PfProductImporter extends Module
                             $new_stock = $stock - $commandecours;
                             // $new_stock = ($new_stock < 0) ? 0 : $new_stock;
                             if (StockAvailable::setQuantity($id_product, 0, $new_stock) === false) {
-                                $output .= 'Quantities update error for ' . $id_product . ' ' . $reference . ' : ' .
-                                    $stock_available . ' -> ' . $new_stock . '\n';
+                                $output .= 'ERREUR mise a jour stock article ' . $reference . ' (' . $id_product . ') : ' .
+                                    $stock_available . ' -> ' . $new_stock . "\n";
                             } else {
-                                $output .= 'Quantities update for ' . $reference . ' : ' .
-                                    $stock_available . ' -> ' . $new_stock . '\n';
+                                $output .= 'Stock article ' . $reference . ' mis a jour : ' .
+                                    $stock_available . ' -> ' . $new_stock . "\n";
                             }
                         }
 
@@ -721,11 +742,11 @@ class PfProductImporter extends Module
                                         $new_stock
                                     ) === false
                                 ) {
-                                    $output .= 'Quantities update error for combination ' . $c['id_product'] . ' ' .
-                                        $reference . ' : ' . $stock_available . ' -> ' . $new_stock . '\n';
+                                    $output .= 'ERREUR mise a jour declinaison ' . $reference . ' (' . $id_product . ') : ' .
+                                        $stock_available . ' -> ' . $new_stock . "\n";
                                 } else {
-                                    $output .= 'Quantities update for combination ' . $reference . ' : ' .
-                                        $stock_available . ' -> ' . $new_stock . '\n';
+                                    $output .= 'Stock declinaison ' . $reference . ' mis a jour : ' .
+                                        $stock_available . ' -> ' . $new_stock . "\n";
                                 }
                             }
                         }
@@ -771,7 +792,7 @@ class PfProductImporter extends Module
                     if ($id_product && is_numeric($id_product)) {
                         $product = new Product($id_product);
                         if ($product && $product->delete()) {
-                            $output .= 'Article deleted:' . $this->openb() . $codeArt . $this->clouseb() . '\n';
+                            $output .= 'Article deleted:' . $codeArt . '\n';
                         }
                     }
 
@@ -864,6 +885,7 @@ class PfProductImporter extends Module
             'SYNC_CSV_FEEDURL' => Configuration::get('SYNC_CSV_FEEDURL'),
             'PI_SOFTWAREID' => Configuration::get('PI_SOFTWAREID'),
             'PI_CRON_TASK' => Configuration::get('PI_CRON_TASK'),
+            'PI_ALLOW_STOCKIMPORT' => Configuration::get('PI_ALLOW_STOCKIMPORT'),
             'SYNC_STOCK_PDV' => Configuration::get('SYNC_STOCK_PDV'),
             'PI_ALLOW_PRODUCTIMPORT' => Configuration::get('PI_ALLOW_PRODUCTIMPORT'),
             'PI_ALLOW_PRODUCTIMAGEIMPORT' => Configuration::get('PI_ALLOW_PRODUCTIMAGEIMPORT'),
@@ -1198,6 +1220,7 @@ class PfProductImporter extends Module
             'SYNC_CSV_FEEDURL' => Configuration::get('SYNC_CSV_FEEDURL'),
             'PI_SOFTWAREID' => Configuration::get('PI_SOFTWAREID'),
             'PI_CRON_TASK' => Configuration::get('PI_CRON_TASK'),
+            'PI_ALLOW_STOCKIMPORT' => Configuration::get('PI_ALLOW_STOCKIMPORT'),
             'SYNC_STOCK_PDV' => Configuration::get('SYNC_STOCK_PDV'),
             'PI_ALLOW_PRODUCTIMPORT' => Configuration::get('PI_ALLOW_PRODUCTIMPORT'),
             'PI_ALLOW_PRODUCTIMAGEIMPORT' => Configuration::get('PI_ALLOW_PRODUCTIMAGEIMPORT'),
@@ -1229,6 +1252,7 @@ class PfProductImporter extends Module
         Configuration::updateValue('SYNC_CSV_FEEDURL', trim(Tools::getValue('SYNC_CSV_FEEDURL')));
         Configuration::updateValue('PI_SOFTWAREID', Tools::getValue('PI_SOFTWAREID'));
         Configuration::updateValue('PI_CRON_TASK', Tools::getValue('PI_CRON_TASK'));
+        Configuration::updateValue('PI_ALLOW_STOCKIMPORT', Tools::getValue('PI_ALLOW_STOCKIMPORT'));
         Configuration::updateValue('SYNC_STOCK_PDV', Tools::getValue('SYNC_STOCK_PDV'));
         Configuration::updateValue('PI_ALLOW_PRODUCTIMPORT', Tools::getValue('PI_ALLOW_PRODUCTIMPORT'));
         Configuration::updateValue('PI_ALLOW_PRODUCTIMAGEIMPORT', Tools::getValue('PI_ALLOW_PRODUCTIMAGEIMPORT'));
@@ -1256,13 +1280,12 @@ class PfProductImporter extends Module
         Configuration::updateValue('PI_RG10', Tools::getValue('PI_RG10'));
         Configuration::updateValue('PI_ADD_TASK', 1);
         Configuration::updateValue('PI_EDIT_TASK', 1);
-        Configuration::updateValue('PI_LAST_CRON', date('Y-m-d H:i:s'));
-
         // Logger les modifications apres sauvegarde
         $newValues = array(
             'SYNC_CSV_FEEDURL' => trim(Tools::getValue('SYNC_CSV_FEEDURL')),
             'PI_SOFTWAREID' => Tools::getValue('PI_SOFTWAREID'),
             'PI_CRON_TASK' => Tools::getValue('PI_CRON_TASK'),
+            'PI_ALLOW_STOCKIMPORT' => Tools::getValue('PI_ALLOW_STOCKIMPORT'),
             'SYNC_STOCK_PDV' => Tools::getValue('SYNC_STOCK_PDV'),
             'PI_ALLOW_PRODUCTIMPORT' => Tools::getValue('PI_ALLOW_PRODUCTIMPORT'),
             'PI_ALLOW_PRODUCTIMAGEIMPORT' => Tools::getValue('PI_ALLOW_PRODUCTIMAGEIMPORT'),
@@ -1881,9 +1904,7 @@ class PfProductImporter extends Module
                 if ($field_error === true && $lang_field_error === true) {
                     if ($product->id && Product::existsInDatabase((int) $product->id, 'product')) {
                         $linecountedited = $linecountedited + 1;
-
-                        // $output .= "Produit $reference mis a jour\n";
-
+                        $output .= "Produit $reference mis a jour\n";
                         $datas = Db::getInstance()->getRow('
                     SELECT product_shop.`date_add`
                     FROM `' . _DB_PREFIX_ . 'product` p
@@ -1907,10 +1928,6 @@ class PfProductImporter extends Module
                         // If no id_product or update failed
                         if (!$res) {
                             $product->active = $activeproduct;
-                            $linecountadded = $linecountadded + 1;
-
-                            // $output .= "Produit simple $reference cree\n";
-
                             try {
                                 if (isset($product->date_add) && $product->date_add != '') {
                                     $res = $product->add(false);
@@ -1920,6 +1937,8 @@ class PfProductImporter extends Module
                             } catch (Exception $e) {
                                 $output .= Vccsv::logError($e);
                             }
+                            $linecountadded = $linecountadded + 1;
+                            $output .= "Produit simple $reference cree\n";                            
                             $reference_field = Configuration::get('PI_PRODUCT_REFERENCE');
                             Db::getInstance()->execute('insert into `' . _DB_PREFIX_ .
                                 'pfi_import_log`(vdate, reference, product_error) value(NOW(), "' .
@@ -2030,7 +2049,7 @@ class PfProductImporter extends Module
                     $stock = $product->quantity;
                 }
                 if (StockAvailable::setQuantity((int) $product->id, 0, $stock) !== false) {
-                    // $output .= 'Article ' . $product->$reference_field . ' mis a jour sur Prestashop depuis Rezomatic' . "\n";
+                    $output .= 'Stock article ' . $product->$reference_field . ' mis a jour a ' . $stock . ' sur Prestashop depuis Rezomatic' . "\n";
                 } else {
                     $output .= 'Article ' . $product->$reference_field . ' <b>NON</b> mis a jour sur Prestashop' . "\n";
                 }
@@ -2283,7 +2302,7 @@ class PfProductImporter extends Module
                                                 'shops' => $shops,
                                             ];
 
-                                            // $output .= "Image declinaison $reference ajoutee au traitement\n";
+                                            $output .= "Image declinaison $reference ajoutee au traitement\n";
                                         } else {
                                             // $output .= "Image declinaison principale $reference skippee (herite du parent)\n";
                                         }
@@ -2353,7 +2372,7 @@ class PfProductImporter extends Module
                                     pSQL($reference) . '", "Declinaison creee pour produit ' . $product_reference . '")');
 
                                 $linecountadded_combinations = $linecountadded_combinations + 1;
-                                // $output .= "Declinaison $reference creee\n";
+                                $output .= "Declinaison $reference creee\n";
                             } else {
                                 // gets all the combinations of this product
                                 $attribute_combinations = $product->getAttributeCombinations($default_language_id);
@@ -2384,7 +2403,7 @@ class PfProductImporter extends Module
                                         $id_product_attribute_update = true;
                                     }
                                 }
-                                // $output .= "Declinaison $reference mise a jour\n";
+                                $output .= "Declinaison $reference mise a jour\n";
                             }
 
                             if ($id_attribute) {
@@ -2423,14 +2442,17 @@ class PfProductImporter extends Module
                                 $pdv = array_map('trim', $pdv);
                                 $sc = new SoapClient($feedurl, ['keep_alive' => false]);
                                 $stock_pdvs = $sc->getStocksFromCode($softwareid, $reference);
-                                if (is_array($stock_pdvs->stockPdv)) {
-                                    $stocks = $stock_pdvs->stockPdv;
-                                } else {
-                                    $stocks = [$stock_pdvs->stockPdv];
-                                }
-                                foreach ($stocks as $st) {
-                                    if (in_array($st->idPdv, $pdv)) {
-                                        $stock_product += $st->stock;
+                                if(isset($stock_pdvs) && isset($stock_pdvs->stockPdv))
+                                {
+                                    if (is_array($stock_pdvs->stockPdv)) {
+                                        $stocks = $stock_pdvs->stockPdv;
+                                    } else {
+                                        $stocks = [$stock_pdvs->stockPdv];
+                                    }
+                                    foreach ($stocks as $st) {
+                                        if (in_array($st->idPdv, $pdv)) {
+                                            $stock_product += $st->stock;
+                                        }
                                     }
                                 }
                             } else {
@@ -2549,7 +2571,6 @@ class PfProductImporter extends Module
         }
 
         //  ReSUMe AJOUTe AVANT LES LOGS CRON
-        $output .= "--- RESUME PRODUITS ---\n";
         $output .= "Produits traites: $linecount\n";
         $output .= "Produits crees: $linecountadded\n";
         $output .= "Produits mis a jour: $linecountedited\n";
@@ -2557,42 +2578,6 @@ class PfProductImporter extends Module
             $output .= "Declinaisons traitees: $linecount_combinations\n";
             $output .= "Declinaisons creees: $linecountadded_combinations\n";
         }
-
-        if ($iscron == 1) {
-            echo '-------------------------------------------------<br/>';
-            echo $this->l('No.of Entries processed') . ' : ' . $linecount . '<br/>';
-            echo '-------------------------------------------------<br/>';
-            echo $this->l('No.of Entries with error') . ' : ' . $linecounterror . '<br/>';
-            echo '-------------------------------------------------<br/>';
-            echo $this->l('No.of Products created') . ' : ' . $linecountadded . '<br/>';
-            echo '-------------------------------------------------<br/>';
-            echo $this->l('No.of Products updated') . ' : ' . $linecountedited . '<br/>';
-            echo '-------------------------------------------------<br/>';
-
-            /*
-         * @edit Definima
-         * Ajout des declinaisons dans le log
-         */
-            if (Combination::isFeatureActive()) {
-                echo '-------------------------------------------------<br/>';
-                echo '-------------------------------------------------<br/>';
-                echo $this->l('No.of Combination entries processed') . ' : ' . $linecount_combinations . '<br/>';
-                echo '-------------------------------------------------<br/>';
-                echo $this->l('No.of Combination entries with error') . ' : ' . $linecounterror_combinations . '<br/>';
-                echo '-------------------------------------------------<br/>';
-                echo $this->l('No.of Combination created') . ' : ' . $linecountadded_combinations . '<br/>';
-                echo '-------------------------------------------------<br/>';
-                echo $this->l('No.of Combination updated') . ' : ' .
-                    ($linecount_combinations - $linecountadded_combinations) . '<br/>';
-                echo '-------------------------------------------------<br/>';
-            }
-
-            echo '-------------------------------------------------<br/>';
-            echo '-------------------------------------------------<br/>';
-            echo $this->l('New categories') . ' : ' . implode(', ', $this->arrcat) . '<br/>';
-            echo '-------------------------------------------------<br/>';
-        }
-
         if (!empty($output)) {
             return $output;
         } else {
@@ -3454,9 +3439,14 @@ class PfProductImporter extends Module
                     $output .= ' sur ' . $pdv . '\n';
                     // Recupere tous les articles soldes
                     $all_article_solde = $sc->getAllTarifsSoldesFor($softwareid, $pdv);
+                    if (isset($all_article_solde->tarifsSoldes)) {
+                        if (is_array($all_article_solde->tarifsSoldes)) {
+                            $all_art_solde = $all_article_solde->tarifsSoldes;
+                        } else {
+                            $all_art_solde = [$all_article_solde->tarifsSoldes];
+                        }
 
-                    if (isset($all_article_solde->tarifsSoldes) && is_array($all_article_solde->tarifsSoldes)) {
-                        foreach ($all_article_solde->tarifsSoldes as $art) {
+                        foreach ($all_art_solde as $art) {
                             $reference = $art->codeArt;
 
                             // Recupere le produit sur Rezomatic
@@ -3678,25 +3668,25 @@ class PfProductImporter extends Module
                     // Succès réel
                     $updates_count++;
                     $rezomatic_label = $this->getRezoStateLabelFromNumber($last_state->statut);
-                    $output .= 'Commande ' . $order_data['id_order'] . ' : "' . $rezomatic_label . '" => état ' . $new_status . '\n';
+                    $output .= 'Mise à jour statut commande ' . $order_data['id_order'] . ' : "' . $rezomatic_label . '" (' . $new_status . ")\n";
                 } else {
                     // Échec réel
                     $errors_count++;
-                    $output .= 'Échec commande ' . $order_data['id_order'] . ' (état=' . $final_state . ')\n';
+                    $output .= 'Erreur recuperation statut commande ' . $order_data['id_order'] . ' (' . $final_state . ")\n";
                 }
             } catch (Exception $e) {
                 $errors_count++;
-                $output .= 'Erreur commande ' . $order_data['id_order'] . ': ' . $e->getMessage() . '\n';
+                $output .= 'Erreur commande ' . $order_data['id_order'] . ': ' . $e->getMessage() . "\n";
             }
         }
 
         // Résumé uniquement si il y a eu des actions
         if ($updates_count > 0 || $errors_count > 0) {
-            $output .= 'États synchronisés: ' . $updates_count;
+            $output .= 'Statuts mis a jour : ' . $updates_count;
             if ($errors_count > 0) {
-                $output .= ' (erreurs: ' . $errors_count . ')';
+                $output .= ' (erreurs : ' . $errors_count . ')';
             }
-            $output .= '\n';
+            $output .= "\n";
         }
 
         return $output;
@@ -3773,12 +3763,20 @@ class PfProductImporter extends Module
 
     public function hookDisplayShoppingCart($params)
     {
-        $allow_cart_stock_update = Configuration::get('SYNC_STOCK_PDV');
-
-        if ($allow_cart_stock_update == 1) {
-            $output = $this->stockSyncCron();
-            self::mylog('Resultat stockSyncCron : ' . $output);
+        // Récupérer le contexte
+        $context = Context::getContext();
+        // Vérifier si un client est connecté pour la mise a jour des bons
+        if ($context->customer->isLogged())
+        {
+            $output = CustomerVccsv::loyaltySync($context->customer->id, $context->customer->email);
+            self::mylog($output);
         }
+        // Mise a jour des stocks ?
+        if (Configuration::get('PI_ALLOW_STOCKIMPORT') == 1) {
+            $output = $this->stockSyncCron();
+            self::mylog($output);
+        }
+        // $output = CustomerVccsv::loyaltySync($id_customer, $email_customer);
     }
 
     /** Utilitaire : calcule l’URL Rezomatic ou '' */
