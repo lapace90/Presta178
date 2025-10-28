@@ -343,7 +343,21 @@ WHERE pac.id_product_attribute=' . (int) $id_product_attribute . '
                 $couleur = Tools::replaceAccentedChars($couleur);
                 $couleur = Tools::substr(preg_replace('/[^0-9A-Za-z :\.\,\(\)\?!\+&@_-]/i', ' ', $couleur), 0, 19);
             }
+
+            // Récupérer le paramètre
+            $export_attributes_in_designation = Configuration::get('PI_EXPORT_ATTRIBUTES_IN_DESIGNATION');
+
+            // Si le paramètre est activé, ajouter les attributs à la désignation
+            if ($export_attributes_in_designation) {
+                $attributes_text = trim($taille . ' ' . $couleur);
+                if (!empty($attributes_text)) {
+                    $name = $name . ' ' . $attributes_text;
+                    // Respecter la limite de 120 caractères de Rezomatic
+                    $name = Tools::substr($name, 0, 120);
+                }
+            }
             $free = $sc->isFreeCodeArt($softwareid, $reference_combination);
+
             // L'article existe sur Rezomatic, on le met à jour
             if (!$free) {
                 $art = $sc->updateArticle(
@@ -373,7 +387,7 @@ WHERE pac.id_product_attribute=' . (int) $id_product_attribute . '
                     null,
                     $Product->$reference_field
                 );
-                $output .= "Export declinaison \"".$name." ".$taille." ".$couleur."\" (". $reference_combination . ") vers Rezomatic\n";
+                $output .= "Export declinaison \"" . $name . " " . $taille . " " . $couleur . "\" (" . $reference_combination . ") vers Rezomatic\n";
                 // $output .= 'Prestashop to Rezomatic : syncCombination ' . $reference_combination . ' updated\n';
                 // $output .= print_r((array) $art, true) . '\n';
             } else {
@@ -404,7 +418,7 @@ WHERE pac.id_product_attribute=' . (int) $id_product_attribute . '
                     '',
                     $Product->$reference_field
                 );
-                $output .= "Export declinaison \"".$name." ".$taille." ".$couleur."\" (". $reference_combination . ") vers Rezomatic\n";
+                $output .= "Export declinaison \"" . $name . " " . $taille . " " . $couleur . "\" (" . $reference_combination . ") vers Rezomatic\n";
                 // $output .= 'Prestashop to Rezomatic : syncCombination ' . $reference_combination . ' created\n';
                 // $output .= 'EAN ' . $ean . '\n';
                 // $output .= print_r((array) $art, true) . '\n';
@@ -576,6 +590,16 @@ WHERE pac.id_product_attribute=' . (int) $id_product_attribute . '
                 $couleur = trim(preg_replace('/\s{2,}/', ' ', $couleur));
                 $couleur = Tools::substr($couleur, 0, 19);
 
+                // Si le paramètre est activé, ajouter les attributs à la désignation
+                $export_attributes_in_designation = Configuration::get('PI_EXPORT_ATTRIBUTES_IN_DESIGNATION');
+                if ($export_attributes_in_designation) {
+                    $attributes_text = trim($taille . ' ' . $couleur);
+                    if (!empty($attributes_text)) {
+                        $name = $name . ' ' . $attributes_text;
+                        $name = Tools::substr($name, 0, 120);
+                    }
+                }
+
                 $free = $sc->isFreeCodeArt($softwareid, $reference_combination);
 
                 // L'article existe sur Rezomatic, on le met à jour
@@ -607,7 +631,7 @@ WHERE pac.id_product_attribute=' . (int) $id_product_attribute . '
                         $four,
                         $product_parent_reference
                     );
-                    $output .= "Export declinaison \"".$name." ".$taille." ".$couleur."\" (". $reference_combination . ") vers Rezomatic\n";
+                    $output .= "Export declinaison \"" . $name . " " . $taille . " " . $couleur . "\" (" . $reference_combination . ") vers Rezomatic\n";
                     // $output .= 'Prestashop to Rezomatic : combinationSync ' . $reference_combination . ' updated (codeDeclinaison: ' . $product_parent_reference . ')\n';
                     // $output .= print_r((array) $art, true) . '\n';
                 } else {
@@ -638,7 +662,7 @@ WHERE pac.id_product_attribute=' . (int) $id_product_attribute . '
                         $four,
                         $product_parent_reference
                     );
-                    $output .= "Export declinaison \"".$name." ".$taille." ".$couleur."\" (". $reference_combination . ") vers Rezomatic\n";
+                    $output .= "Export declinaison \"" . $name . " " . $taille . " " . $couleur . "\" (" . $reference_combination . ") vers Rezomatic\n";
                     // $output .= 'Prestashop to Rezomatic : combinationSync ' . $reference_combination . ' created (codeDeclinaison: ' . $product_parent_reference . ')\n';
                     // $output .= print_r((array) $art, true) . '\n';
                 }

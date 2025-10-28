@@ -115,6 +115,27 @@
                     </p>
                 </div>
             </div>
+
+            <div class="form-group">
+                <label class="control-label col-lg-4">Exporter les attributs dans la désignation</label>
+                <div class="col-lg-8">
+                    <span class="switch prestashop-switch fixed-width-lg">
+                        <input type="radio" name="PI_EXPORT_ATTRIBUTES_IN_DESIGNATION"
+                            id="PI_EXPORT_ATTRIBUTES_IN_DESIGNATION_on" value="1"
+                            {if $fields_value.PI_EXPORT_ATTRIBUTES_IN_DESIGNATION}checked{/if}>
+                        <label for="PI_EXPORT_ATTRIBUTES_IN_DESIGNATION_on">Oui</label>
+                        <input type="radio" name="PI_EXPORT_ATTRIBUTES_IN_DESIGNATION"
+                            id="PI_EXPORT_ATTRIBUTES_IN_DESIGNATION_off" value="0"
+                            {if !$fields_value.PI_EXPORT_ATTRIBUTES_IN_DESIGNATION}checked{/if}>
+
+                        <label for="PI_EXPORT_ATTRIBUTES_IN_DESIGNATION_off">Non</label>
+                        <a class="slide-button btn"></a>
+                    </span>
+                    <p class="help-block">
+                        Ajouter les attributs (taille, couleur) dans la désignation lors de l'export vers Rezomatic
+                    </p>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -131,7 +152,6 @@
                         <input type="hidden" name="Submitlimit" value="100000" />
                     </form>
                     {include file="module:pfproductimporter/views/templates/hook/importallcatalog.tpl"}
-
                 </div>
             </div>
         </div>
@@ -196,7 +216,8 @@
         <label class="control-label col-lg-3">Synchroniser les soldes depuis</label>
         <div class="col-lg-6">
             <input type="text" name="PI_SYNC_SALES_PDV" value="{$fields_value.PI_SYNC_SALES_PDV}" />
-            <p class="help-block">Obligatoire si l'import des soldes est actif. Entrer l'identifiant magasin Rezomatic.</p>
+            <p class="help-block">Obligatoire si l'import des soldes est actif. Entrer l'identifiant magasin Rezomatic.
+            </p>
         </div>
     </div>
 
@@ -437,15 +458,15 @@
                 if (data.includes('Soldes en cours')) {
                     $('#sales-status').html(
                         '<strong>✅ Synchronisation terminée !</strong><br>Soldes synchronisés avec succès'
-                        );
+                    );
                 } else if (data.includes('Reset tarifs soldes')) {
                     $('#sales-status').html(
                         '<strong>ℹ️ Synchronisation terminée</strong><br>Aucune période de soldes en cours'
-                        );
+                    );
                 } else if (data.includes('Erreur')) {
                     $('#sales-status').html('❌ Erreur lors de la synchronisation des soldes');
                     console.error('Erreur soldes:', data);
-                } 
+                }
             },
             error: function(xhr, status, error) {
                 clearInterval(progressInterval);

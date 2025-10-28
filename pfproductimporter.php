@@ -896,6 +896,7 @@ class PfProductImporter extends Module
             'PI_SYNC_SALES_PDV' => Configuration::get('PI_SYNC_SALES_PDV'),
             'PI_ACTIVE' => Configuration::get('PI_ACTIVE'),
             'PI_ALLOW_PRODUCTEXPORT' => Configuration::get('PI_ALLOW_PRODUCTEXPORT'),
+            'PI_EXPORT_ATTRIBUTES_IN_DESIGNATION' => Configuration::get('PI_EXPORT_ATTRIBUTES_IN_DESIGNATION'),
             'PI_ALLOW_CATEGORYEXPORT' => Configuration::get('PI_ALLOW_CATEGORYEXPORT'),
             'PI_PRODUCT_REFERENCE' => Configuration::get('PI_PRODUCT_REFERENCE'),
             'PI_ALLOW_CUSTOMERIMPORT' => Configuration::get('PI_ALLOW_CUSTOMERIMPORT'),
@@ -1233,6 +1234,7 @@ class PfProductImporter extends Module
             'PI_SYNC_SALES_PDV' => Configuration::get('PI_SYNC_SALES_PDV'),
             'PI_ACTIVE' => Configuration::get('PI_ACTIVE'),
             'PI_ALLOW_PRODUCTEXPORT' => Configuration::get('PI_ALLOW_PRODUCTEXPORT'),
+            'PI_EXPORT_ATTRIBUTES_IN_DESIGNATION' => Configuration::get('PI_EXPORT_ATTRIBUTES_IN_DESIGNATION'),
             'PI_ALLOW_CATEGORYEXPORT' => Configuration::get('PI_ALLOW_CATEGORYEXPORT'),
             'PI_PRODUCT_REFERENCE' => Configuration::get('PI_PRODUCT_REFERENCE'),
             'PI_ALLOW_CUSTOMERIMPORT' => Configuration::get('PI_ALLOW_CUSTOMERIMPORT'),
@@ -1265,6 +1267,7 @@ class PfProductImporter extends Module
         Configuration::updateValue('PI_SYNC_SALES_PDV', Tools::getValue('PI_SYNC_SALES_PDV'));
         Configuration::updateValue('PI_ACTIVE', Tools::getValue('PI_ACTIVE'));
         Configuration::updateValue('PI_ALLOW_PRODUCTEXPORT', Tools::getValue('PI_ALLOW_PRODUCTEXPORT'));
+        Configuration::updateValue('PI_EXPORT_ATTRIBUTES_IN_DESIGNATION', Tools::getValue('PI_EXPORT_ATTRIBUTES_IN_DESIGNATION'));
         Configuration::updateValue('PI_ALLOW_CATEGORYEXPORT', Tools::getValue('PI_ALLOW_CATEGORYEXPORT'));
         Configuration::updateValue('PI_PRODUCT_REFERENCE', Tools::getValue('PI_PRODUCT_REFERENCE'));
         Configuration::updateValue('PI_ALLOW_CUSTOMERIMPORT', Tools::getValue('PI_ALLOW_CUSTOMERIMPORT'));
@@ -1298,6 +1301,7 @@ class PfProductImporter extends Module
             'PI_SYNC_SALES_PDV' => Tools::getValue('PI_SYNC_SALES_PDV'),
             'PI_ACTIVE' => Tools::getValue('PI_ACTIVE'),
             'PI_ALLOW_PRODUCTEXPORT' => Tools::getValue('PI_ALLOW_PRODUCTEXPORT'),
+            'PI_EXPORT_ATTRIBUTES_IN_DESIGNATION' => Tools::getValue('PI_EXPORT_ATTRIBUTES_IN_DESIGNATION'),
             'PI_ALLOW_CATEGORYEXPORT' => Tools::getValue('PI_ALLOW_CATEGORYEXPORT'),
             'PI_PRODUCT_REFERENCE' => Tools::getValue('PI_PRODUCT_REFERENCE'),
             'PI_ALLOW_CUSTOMERIMPORT' => Tools::getValue('PI_ALLOW_CUSTOMERIMPORT'),
