@@ -858,7 +858,7 @@ class ProductVccsv extends Vccsv
                 // Récupérer tous les produits actifs (SANS LIMITE)
                 $sql = 'SELECT p.id_product
                 FROM ' . _DB_PREFIX_ . 'product p
-                WHERE p.active = 1';
+                WHERE 1 = 1';
                 if ($last_cron && $iscron == 1) {
                     $sql .= ' AND p.date_upd >= "' . pSQL($last_cron) . '"';
                 }

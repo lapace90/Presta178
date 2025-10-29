@@ -1,4 +1,5 @@
 <?php
+
 /**
  * 2018 - Definima
  *
@@ -24,6 +25,50 @@ class OrderVccsv extends Vccsv
     }
 
     /**
+     * Convertit un nom de paiement PrestaShop en mode Rezomatic
+     * @param string $prestashopPayment
+     * @return string
+     */
+    public static function convertPaymentToRezomatic($prestashopPayment)
+    {
+        // Charger les mappings configurés
+        $mappingsJson = Configuration::get('PI_PAYMENT_MAPPINGS');
+        $mappings = $mappingsJson ? json_decode($mappingsJson, true) : array();
+
+        // Normaliser le nom du paiement
+        $prestashopPayment = Tools::strtoupper(trim(Tools::replaceAccentedChars($prestashopPayment)));
+
+        // Chercher dans les mappings configurés
+        foreach ($mappings as $mapping) {
+            if (isset($mapping['prestashop']) && $mapping['prestashop'] === $prestashopPayment) {
+                return $mapping['rezomatic'];
+            }
+        }
+
+        // Fallback : mappings par défaut pour compatibilité
+        $defaultMappings = array(
+            'CHEQUE' => 'CHQ',
+            'BANK WIRE' => 'CHQ',
+            'PAYMENT BY CHECK' => 'CHQ',
+            'CREDITCARD' => 'CB',
+            'PAIEMENT PAR CARTE BANCAIRE' => 'CB',
+            'PAIEMENT PAR CB BANQUE POPULAIRE 3D SECURE' => 'CB',
+            'ATOS' => 'CB',
+            'CM-CIC P@IEMENT' => 'CB',
+            'FREEPAY' => 'CB',
+            'PAYLINE' => 'CB',
+            'SOGECOMMERCE' => 'CB',
+        );
+
+        if (isset($defaultMappings[$prestashopPayment])) {
+            return $defaultMappings[$prestashopPayment];
+        }
+
+        // Retourner le nom original si aucune correspondance trouvée
+        return $prestashopPayment;
+    }
+
+    /**
      * orderSync function.
      *
      * @static
@@ -34,7 +79,7 @@ class OrderVccsv extends Vccsv
      */
     public static function orderSync($id_order)
     {
-        if(empty($id_order))
+        if (empty($id_order))
             return;
         $allow_orderexport = Configuration::get('PI_ALLOW_ORDEREXPORT');
         $softwareid = Configuration::get('PI_SOFTWAREID');
@@ -64,7 +109,7 @@ class OrderVccsv extends Vccsv
                         // Export de la commande
                         $neworderid = $sc->getNextCommandeNum($softwareid);
                         $pdv = Configuration::get('SYNC_STOCK_PDV');
-                        $output .= "=== EXPORT COMMANDE " . (int) $id_order . " (TWS ".$neworderid.") ===\n";
+                        $output .= "=== EXPORT COMMANDE " . (int) $id_order . " (TWS " . $neworderid . ") ===\n";
                         foreach ($products as $product) {
                             // Si c'est un Pack, champs reference uniquement
                             if (Pack::isPack($product['product_id'])) {
@@ -75,8 +120,10 @@ class OrderVccsv extends Vccsv
                             $product_reference = $product['product_' . $reference_field];
                             // Si il s'agit d'un pack et que le code Rezomatic ne commence pas par LT__,
                             // On le rajoute
-                            if (Pack::isPack($product['product_id'])
-                                && (Tools::substr($product_reference, 0, 4) != 'LT__')) {
+                            if (
+                                Pack::isPack($product['product_id'])
+                                && (Tools::substr($product_reference, 0, 4) != 'LT__')
+                            ) {
                                 $product_reference = 'LT__' . $product_reference;
                             }
                             $product_quantity = $product['product_quantity'];
@@ -91,10 +138,10 @@ class OrderVccsv extends Vccsv
                                 $total_price_tax_incl,
                                 $pdv
                             );
-                            $output .= "Ajout article ".$product_reference.
-                                        ", prix unitaire ".$unit_price_tax_incl.
-                                        ", qte ".$product_quantity.
-                                        ", prix total ".$total_price_tax_incl."\n";
+                            $output .= "Ajout article " . $product_reference .
+                                ", prix unitaire " . $unit_price_tax_incl .
+                                ", qte " . $product_quantity .
+                                ", prix total " . $total_price_tax_incl . "\n";
                         }
                         // Remise
                         $codes = self::getCartRulesRezomatic($id_order);
@@ -116,7 +163,8 @@ class OrderVccsv extends Vccsv
                         }
                         // HT ?
                         if (($order->total_paid_tax_incl > 0)
-                            && ($order->total_paid_tax_incl == $order->total_paid_tax_excl)) {
+                            && ($order->total_paid_tax_incl == $order->total_paid_tax_excl)
+                        ) {
                             $sc->setModeHT($softwareid, $neworderid, $api_customerid, $pdv);
                             $output .= "Ajout Mode HT\n";
                         }
@@ -126,52 +174,10 @@ class OrderVccsv extends Vccsv
                         $output .= "Ajout frais de port $shippingamount \n";
                         // Ref.
                         $sc->addNote($softwareid, $neworderid, 'Ref. ' . $order->reference);
-                        // Payment
-                        $paymentmethod = Tools::strtoupper(trim(Tools::replaceAccentedChars($order->payment)));
-                        if (($rg = trim(Configuration::get('PI_RG1')))
-                            && (!empty($rg)) && (Tools::strtoupper($rg) == $paymentmethod)) {
-                            $paymentmethod = 'RG1';
-                        } elseif (($rg = trim(Configuration::get('PI_RG2')))
-                            && (!empty($rg)) && (Tools::strtoupper($rg) == $paymentmethod)) {
-                            $paymentmethod = 'RG2';
-                        } elseif (($rg = trim(Configuration::get('PI_RG3')))
-                            && (!empty($rg)) && (Tools::strtoupper($rg) == $paymentmethod)) {
-                            $paymentmethod = 'RG3';
-                        } elseif (($rg = trim(Configuration::get('PI_RG4')))
-                            && (!empty($rg)) && (Tools::strtoupper($rg) == $paymentmethod)) {
-                            $paymentmethod = 'RG4';
-                        } elseif (($rg = trim(Configuration::get('PI_RG5')))
-                            && (!empty($rg)) && (Tools::strtoupper($rg) == $paymentmethod)) {
-                            $paymentmethod = 'RG5';
-                        } elseif (($rg = trim(Configuration::get('PI_RG6')))
-                            && (!empty($rg)) && (Tools::strtoupper($rg) == $paymentmethod)) {
-                            $paymentmethod = 'RG6';
-                        } elseif (($rg = trim(Configuration::get('PI_RG7')))
-                            && (!empty($rg)) && (Tools::strtoupper($rg) == $paymentmethod)) {
-                            $paymentmethod = 'RG7';
-                        } elseif (($rg = trim(Configuration::get('PI_RG8')))
-                            && (!empty($rg)) && (Tools::strtoupper($rg) == $paymentmethod)) {
-                            $paymentmethod = 'RG8';
-                        } elseif (($rg = trim(Configuration::get('PI_RG9')))
-                            && (!empty($rg)) && (Tools::strtoupper($rg) == $paymentmethod)) {
-                            $paymentmethod = 'RG9';
-                        } elseif (($rg = trim(Configuration::get('PI_RG10')))
-                            && (!empty($rg)) && (Tools::strtoupper($rg) == $paymentmethod)) {
-                            $paymentmethod = 'RG10';
-                        } elseif (in_array($paymentmethod, ['CHEQUE', 'BANK WIRE', 'PAYMENT BY CHECK'])) {
-                            $paymentmethod = 'CHQ';
-                        } elseif (in_array($paymentmethod, [
-                            'CREDITCARD',
-                            'PAIEMENT PAR CARTE BANCAIRE',
-                            'PAIEMENT PAR CB BANQUE POPULAIRE 3D SECURE',
-                            'ATOS',
-                            'CM-CIC P@IEMENT',
-                            'FREEPAY',
-                            'PAYLINE',
-                            'SOGECOMMERCE',
-                        ])) {
-                            $paymentmethod = 'CB';
-                        }
+                        
+                        // Payment - Conversion via les mappings configurés
+                        $paymentmethod = self::convertPaymentToRezomatic($order->payment);
+
                         $sc->addModeReglement($softwareid, $neworderid, $api_customerid, $paymentmethod, $pdv);
                         $output .= "Ajout mode de reglement $paymentmethod \n";
                         $array_data = [
@@ -216,10 +222,10 @@ class OrderVccsv extends Vccsv
                 'pfi_order_apisync where system_orderid=' . (int) $id_order);
             if ($api_orderid) {
                 if ($sc->annuleCommande($softwareid, $api_orderid)) {
-                    $output .= 'Commande ' . $id_order . ' (' . $api_orderid . ') annulee'."\n";
+                    $output .= 'Commande ' . $id_order . ' (' . $api_orderid . ') annulee' . "\n";
                 }
             } else {
-                $output .= 'Commande ' . $id_order . ' (' . $api_orderid . ') inconnue'."\n";
+                $output .= 'Commande ' . $id_order . ' (' . $api_orderid . ') inconnue' . "\n";
             }
         } catch (SoapFault $exception) {
             $output .= Vccsv::logError($exception);

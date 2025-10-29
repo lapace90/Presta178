@@ -524,7 +524,8 @@ WHERE pac.id_product_attribute=' . (int) $id_product_attribute . '
                 }
 
                 $loyalty = '';
-                $ecotax = $Combination->ecotax;
+                // Si la déclinaison n'a pas d'écotaxe propre, prendre celle du parent
+                $ecotax = ($Combination->ecotax > 0) ? $Combination->ecotax : $Product->ecotax;
                 $tax = Tax::getProductTaxRate((int) $Combination->id_product);
                 $isvirtual = 0;
                 $ean = $Combination->ean13;
@@ -590,12 +591,26 @@ WHERE pac.id_product_attribute=' . (int) $id_product_attribute . '
                 $couleur = trim(preg_replace('/\s{2,}/', ' ', $couleur));
                 $couleur = Tools::substr($couleur, 0, 19);
 
-                // Si le paramètre est activé, ajouter les attributs à la désignation
+                // Si le paramètre est activé, ajouter TOUS les attributs à la désignation
                 $export_attributes_in_designation = Configuration::get('PI_EXPORT_ATTRIBUTES_IN_DESIGNATION');
                 if ($export_attributes_in_designation) {
-                    $attributes_text = trim($taille . ' ' . $couleur);
+                    // Récupérer TOUS les attributs de la déclinaison (pas seulement taille/couleur)
+                    $all_attributes = [];
+                    if (!empty($associations)) {
+                        foreach ($associations as $attr) {
+                            if (!empty($attr['value'])) {
+                                $all_attributes[] = $attr['value'];
+                            }
+                        }
+                    }
+
+                    // Construire le texte avec tous les attributs
+                    $attributes_text = implode(' ', $all_attributes);
+                    $attributes_text = trim($attributes_text);
+
                     if (!empty($attributes_text)) {
                         $name = $name . ' ' . $attributes_text;
+                        // Respecter la limite de 120 caractères de Rezomatic pour la désignation
                         $name = Tools::substr($name, 0, 120);
                     }
                 }
