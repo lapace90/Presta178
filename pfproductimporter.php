@@ -39,11 +39,11 @@ class PfProductImporter extends Module
     {
         $this->name = 'pfproductimporter';
         $this->tab = 'migration_tools';
-        $this->version = '2.7.1';
+        $this->version = '2.7.2';
         $this->author = 'Definima/TGM';
         $this->ps_versions_compliancy = [
-            'min' => '1.6.0.4',
-            'max' => '9.99.99',
+            'min' => '1.7.0.0',
+            'max' => '8.99.99',
         ];
         parent::__construct();
         $this->displayName = $this->l('Rezomatic Synchronization');
@@ -77,15 +77,11 @@ class PfProductImporter extends Module
             && $this->registerHook('actionObjectCustomerUpdateAfter')
             && $this->registerHook('actionAuthentication')
             && $this->registerHook('actionProductAdd')
-            && $this->registerHook('displayHeader')
             && $this->registerHook('actionOrderStatusUpdate')
             && $this->registerHook('actionProductUpdate')
+            && $this->registerHook('actionPDFInvoiceRender')
             && $this->registerHook('displayShoppingCart')
-            && $this->registerHook('actionDispatcher')
-            && $this->registerHook('displayHeader')
-            // && $this->registerHook('displayBackOfficeHeader')
             // && $this->registerHook('actionProductDelete')
-            // @edit Definima  Gestion des declinaisons @deprecated
         ;
     }
 
@@ -125,7 +121,7 @@ class PfProductImporter extends Module
             try {
                 $sc = new SoapClient($feedurl, ['keep_alive' => false]);
                 $timestamp_old = '2020-01-01 00:00:00';
-                $art = $sc->getNewArticles($softwareid, $timestamp_old, 0);
+                $art = $sc->getNewArticles($softwareid, $timestamp_old);
 
                 if (!empty($art->article)) {
                     $articles = is_array($art->article) ? $art->article : [$art->article];
@@ -221,12 +217,8 @@ class PfProductImporter extends Module
             if ($this->saveMainSettingsForm()) {
                 $output = $this->displayConfirmation($this->l('Settings updated'));
                 if (Tools::getValue('PI_ALLOW_PRODUCTIMPORT')) {
-                    // 2. Fields Mapping
-                    // $output .= Vccsv::buildMappingFieldsForm($this);
                     $output .= $this->renderMainSettingsForm();
                 } elseif (Tools::getValue('PI_ALLOW_PRODUCTEXPORT')) {
-                    // 2. Export all prodcuts ?
-                    // $output .= $this->renderExportCatalogForm();
                     $output .= $this->displayConfirmation(
                         'L\'exportation des produits est activee. Vous pouvez maintenant exporter votre catalogue.'
                     );
@@ -306,33 +298,6 @@ class PfProductImporter extends Module
             $output = $this->renderMainSettingsForm();
 
             return $output;
-            // } elseif (Tools::isSubmit('importallproduct')) {
-            //     // ✅ 1. DELETE ARTICLES (comme le cron)
-            //     $output = $this->deleteArticle();
-
-            //     // ✅ 2. UPDATE ARTICLES (comme le cron)
-            //     $this->saveTestTmpData(2, '');
-            //     $output .= $this->finalimport('', '');
-
-            //     // ✅ 3. UPDATE STOCKS (comme le cron)
-            //     $output .= $this->stockSyncCron();
-
-            //     // ✅ 4. UPDATE LOTS (comme le cron)
-            //     $output .= ProductVccsv::importLot();
-
-            //     $output .= "\nImport complete. " . $this->importationlink();
-            //     return $output;
-            // } elseif (Tools::getValue('simple_import') || Tools::isSubmit('submitfromlast')) {
-            //     // TODO : Import tache cron ?
-            //     $Submitlimit = Tools::getValue('Submitlimit');
-            //     $Submitoffset = Tools::getValue('Submitoffset');
-            //     if (Tools::isSubmit('submitfromlast')) {
-            //         $Submitlimit = (int) Tools::getValue('productlimit');
-            //         $Submitoffset = Tools::getValue('lastref');
-            //     }
-            //     $output = $this->finalimport($Submitlimit, $Submitoffset);
-
-            //     return $output;
         } elseif (Tools::isSubmit('submitgotomain')) {
             // TODO : Import tache cron ?
             $url = AdminController::$currentIndex . '&modulename=' . $this->name . '&configure=' . $this->name .
@@ -359,23 +324,6 @@ class PfProductImporter extends Module
         }
         return $output;
     }
-
-    // /**
-    //  * hookDisplayHeader function.
-    //  *
-    //  * @param mixed $params
-    //  *
-    //  * @return void
-    //  */
-    // public function hookDisplayHeader($params)
-    // {
-    //     // Verifie si on est sur la page panier
-    //     $controller = Tools::getValue('controller');
-    //     if ($controller === 'cart' || $controller === 'order') {
-    //         $output = $this->hookDisplayShoppingCart($params);
-    //         $this->mylog($output);
-    //     }
-    // }
 
     /**
      * hookActionProductAdd function.
@@ -511,6 +459,30 @@ class PfProductImporter extends Module
     }
 
     /**
+     * hookDisplayShoppingCart function.
+     * Mise a jour des stocks a l'affichage du panier
+     *
+     * @param mixed $params
+     *
+     * @return void
+     */
+    public function hookDisplayShoppingCart($params)
+    {
+        // Récupérer le contexte
+        $context = Context::getContext();
+        // Vérifier si un client est connecté pour la mise a jour des bons
+        if ($context->customer->isLogged()) {
+            $output = CustomerVccsv::loyaltySync($context->customer->id, $context->customer->email);
+            self::mylog($output);
+        }
+        // Mise a jour des stocks ?
+        if (Configuration::get('PI_ALLOW_STOCKIMPORT') == 1) {
+            $output = $this->stockSyncCron();
+            self::mylog($output);
+        }
+    }
+
+    /**
      * hookActionValidateOrder function.
      *
      * @param mixed $params
@@ -547,115 +519,25 @@ class PfProductImporter extends Module
     }
 
     /**
-     * productImportCron function.
+     * hookActionPDFInvoiceRender function.
+     * Remplacement PDF Facture par celle de Rezomatic
+     *
+     * @param mixed $params
      *
      * @return void
      */
-    public function productImportCron()
+    public function hookActionPDFInvoiceRender($params)
     {
-        $allow_productimport = Configuration::get('PI_ALLOW_PRODUCTIMPORT');
-        $softwareid = Configuration::get('PI_SOFTWAREID');
-        $languages = Language::getLanguages();
-        $output = '';
-        // $timestamp  = date('Y-m-d H:i:s', mktime(0, 0, 0, date("n"), (date('j')-1), date("Y")));
-        $timestamp = Configuration::get('PI_LAST_CRON');
-        if ($allow_productimport == 1) {
-            $feedurl = Configuration::get('SYNC_CSV_FEEDURL');
-            $id_lang = (int) Configuration::get('PS_LANG_DEFAULT');
-            try {
-                $sc = new SoapClient($feedurl, ['keep_alive' => false]);
-                $products = $sc->getUpdatedArticles($softwareid, $timestamp);
-                if ($products) {
-                    $languages = Language::getLanguages();
-                    $columns = $this->getxmlfields();
-                    if (empty($columns)) {
-                        $output .= 'Please configure the field mappings in the module backend\n';
-                        exit($output);
-                    }
-                    foreach ($products->article as $col) {
-                        // get fields mappings
-                        $raw_products_arr = (array) $col;
-                        $reference = $raw_products_arr[$columns[Configuration::get('PI_PRODUCT_REFERENCE')]];
-                        $name = $raw_products_arr[$columns['name']];
-                        // quantity
-                        $pdv = Configuration::get('SYNC_STOCK_PDV');
-                        if (!empty($pdv)) {
-                            // Prise en compte uniquement des stocks du PDV renseigne
-                            $pdv = explode(',', $pdv);
-                            $pdv = array_map('strtolower', $pdv);
-                            $pdv = array_map('trim', $pdv);
-                            $quantity = 0;
-                            $stock_pdvs = $sc->getStocksFromCode($softwareid, $reference);
-                            if (is_array($stock_pdvs->stockPdv)) {
-                                $stocks = $stock_pdvs->stockPdv;
-                            } else {
-                                $stocks = [$stock_pdvs->stockPdv];
-                            }
-                            foreach ($stocks as $st) {
-                                if (in_array($st->idPdv, $pdv)) {
-                                    $quantity += $st->stock;
-                                }
-                            }
-                        } else {
-                            $quantity = $raw_products_arr[$columns['quantity']];
-                        }
-                        $category = $raw_products_arr[$columns['id_category_default']];
-                        $description = null;
-                        $description_short = null;
-                        $row = Db::getInstance()->getRow('SELECT p.id_product FROM `' . _DB_PREFIX_ .
-                            'product` p WHERE p.' .
-                            Configuration::get('PI_PRODUCT_REFERENCE') . ' = "' . pSQL($reference) . '"');
-                        if (!$row) {
-                            $output .= 'product : ' . $reference . ' does not exist\n';
-                            continue;
-                        } else {
-                            $output .= 'product : ' . $reference . ' exists\n';
-                        }
+        $invoice = $params['object'];
+        $id_invoice = (int)$invoice->id;
 
-                        $product_id = $row['id_product'];
-                        $product = new Product($product_id);
-                        $output .= Configuration::get('PI_PRODUCT_REFERENCE') . ': ' . $reference . ' --- name: ' . $name .
-                            ' ---  category:' . $category .
-                            ' --- quantity:' . $quantity . ' --- product_id:' . $product_id . '\n';
-                        $system_formula_field = Configuration::get('SYNC_CSV_FIELD');
-                        $wholesale_price = $raw_products_arr[$columns['wholesale_price']];
-                        $price = $raw_products_arr[$columns['price']];
-                        $formulaprice = $raw_products_arr[$system_formula_field];
-                        $formula_op = Configuration::get('SYNC_CSV_OP');
-                        $formula_val = Configuration::get('SYNC_CSV_VAL');
-                        $this->savenameanddescription($name, $description, $description_short, $languages, $product);
-                        $output .= 'system_formula_field:' . $system_formula_field .
-                            ' --- wholesale_price: ' . $wholesale_price . ' --- price: ' . $price .
-                            ' ---   quantity:' . $quantity . ' --- formulaprice:' . $formulaprice . '\n';
-                        $this->saveprices($wholesale_price, $price, $formulaprice, $formula_op, $formula_val, $product);
-                        $product->category = [$category];
-                        if (!empty($product->category)) {
-                            $outp = $this->setproductcategory($product, $id_lang, $languages);
-                            $output .= $outp;
-                        }
-                        StockAvailable::setQuantity((int) $product->id, 0, $quantity, $id_lang);
-                        $output .= 'Product ' . $reference . ' Updated\n';
-                        exit($output);
-                    }
-                }
-            } catch (SoapFault $exception) {
-                $output = Vccsv::logError($exception);
-            }
-        } else {
-            $output = 'Product import not allowed\n';
+        $externalUrl = 'https://dl.tgmultimedia.com/DocumentationModuleRezomaticPrestashopV2.7.0.pdf';
+        $pdfContent = @file_get_contents($externalUrl);
+
+        if ($pdfContent !== false) {
+            // remplacer le contenu natif du PDF
+            $params['pdf_content'] = $pdfContent;
         }
-        $output = $this->importcron($output);
-
-        return $output;
-    }
-
-    public function importcron($output)
-    {
-        $this->smarty->assign([
-            'output' => $output,
-        ]);
-
-        return $this->display(__FILE__, 'importcron.tpl');
     }
 
     /**
@@ -811,7 +693,7 @@ class PfProductImporter extends Module
                         foreach ($combinations as $c) {
                             $combination = new Combination($c['id_product_attribute']);
                             if ($combination && $combination->delete()) {
-                                $output .= 'Declinaison deleted:' . $this->openb() . $codeArt . $this->clouseb() . '\n';
+                                $output .= 'Declinaison deleted:' . $codeArt . "\n";
                             }
                         }
                     }
@@ -820,15 +702,7 @@ class PfProductImporter extends Module
         } catch (SoapFault $exception) {
             $output = Vccsv::logError($exception);
         }
-        // $output = $this->deletearticleForm($output);
         return $output;
-    }
-
-    public function deletearticleForm($output)
-    {
-        $this->smarty->assign(['output' => $output]);
-
-        return $this->display(__FILE__, 'deletearticle_form.tpl');
     }
 
     /**
@@ -1474,36 +1348,6 @@ class PfProductImporter extends Module
         $helper = new HelperForm();
 
         return $helper->generateForm([$fields_form]);
-    }
-
-    public function importationlink()
-    {
-        return $this->display(__FILE__, 'importationlink.tpl');
-    }
-
-    public function errorImport()
-    {
-        return $this->display(__FILE__, 'errorImport.tpl');
-    }
-
-    public function hr()
-    {
-        return $this->display(__FILE__, 'hr.tpl');
-    }
-
-    public function openb()
-    {
-        return $this->display(__FILE__, 'openb.tpl');
-    }
-
-    public function clouseb()
-    {
-        return $this->display(__FILE__, 'clouseb.tpl');
-    }
-
-    public function backButton()
-    {
-        return $this->display(__FILE__, 'back_button.tpl');
     }
 
     /**
@@ -3643,117 +3487,86 @@ class PfProductImporter extends Module
     }
 
     /**
-     * @edit Definima
-     * Mise a jour status commandes
-     * (ça retourne FAUX mais ça fonctionne quand même: les changements sont pris en compte)
+     * @edit TGM
+     * Mise a jour status commandes Prestashop à partir de Rezomatic
      *
      * @return string
      */
     public function orderStatusSyncCron()
     {
-        $softwareid = Configuration::get('PI_SOFTWAREID');
-        $feedurl = Configuration::get('SYNC_CSV_FEEDURL');
-        $output = '';
-
         // Vérification de base
         if (Configuration::get('PI_UPDATE_ORDER_STATUS') != '1') {
             return $output;
         }
+        
+        $softwareid = Configuration::get('PI_SOFTWAREID');
+        $feedurl = Configuration::get('SYNC_CSV_FEEDURL');
+        $output = '';
 
+        // Récupération des états de commande Prestashop liés aux commandes Rezomatic
+        for($i=1; $i<=5; $i++)
+            $get_status_orders[] = $this->getPrestashopStateFromRezoNumber($i);
+        // Récupération des statuts de commandes Rezomatic qui ont bougé depuis la dernière synchro
         try {
+            $timestamp = Configuration::get('PI_LAST_CRON');
             $sc = new SoapClient($feedurl, ['keep_alive' => false]);
+            $commandesStatuts = $sc->getCommandesStatutsFromTimestamp($softwareid, $timestamp);
+            if (!empty($commandesStatuts->commandeState)) {
+                if (is_array($commandesStatuts->commandeState)) {
+                    $statuts = $commandesStatuts->commandeState;
+                } else {
+                    $statuts = [$commandesStatuts->commandeState];
+                }
+                $updates_count = 0;
+                $skipped_count = 0;
+                $errors_count = 0;                
+                // Pour chaque statut retourné
+                foreach ($statuts as $statut) {
+                    if (isset($get_status_orders[$statut->statut])) {
+                        $new_status = $get_status_orders[$statut->statut];
+                        // récupération de l'id commande Prestashop
+                        $orderid = Db::getInstance()->getValue('select system_orderid from ' . _DB_PREFIX_ .
+                            'pfi_order_apisync where api_orderid=' . (int) $statut->statut);
+                        if($orderid) {
+                            $order = new Order($orderid);
+                            // Statut déjà à jour ? on ne fait rien
+                            if ($order->current_state == $new_status) {
+                                $skipped_count++;
+                                continue;
+                            }
+                            // Sinon mise à jour du statut
+                            $OrderHistory = new OrderHistory();
+                            $OrderHistory->changeIdOrderState($new_status, $orderid);
+                            // Vérification du statut
+                            $order = new Order($orderid);
+                            if ($order->current_state == $new_status) {
+                                // Succès
+                                $updates_count++;
+                                $rezomatic_label = $this->getRezoStateLabelFromNumber($last_state->statut);
+                                $output .= 'Mise à jour statut commande ' . $orderid . ' : "' . $rezomatic_label . '" (' . $new_status . ")\n";
+                            } else {
+                                // Échec
+                                $errors_count++;
+                                $output .= 'Erreur recuperation statut commande ' . $orderid . ' (' . $order->current_state . ")\n";
+                            }
+
+                        }
+                    }
+                }
+                // Résumé uniquement si il y a eu des actions
+                if ($updates_count > 0 || $errors_count > 0) {
+                    $output .= 'Statuts mis a jour : ' . $updates_count;
+                    if ($errors_count > 0) {
+                        $output .= ' (erreurs : ' . $errors_count . ')';
+                    }
+                    $output .= "\n";
+                }
+                return $output;
+            }
         } catch (Exception $e) {
-            $output .= "ERREUR Connexion SOAP: " . $e->getMessage() . "\n";
+            $output .= $e->getMessage() . "\n";
             return $output;
         }
-
-        // Récupérer les commandes exportées récemment
-        $sql = "SELECT system_orderid as id_order, api_orderid 
-            FROM " . _DB_PREFIX_ . "pfi_order_apisync 
-            WHERE api_orderid IS NOT NULL 
-            ORDER BY system_orderid DESC 
-            LIMIT 20";
-
-        $exported_orders = Db::getInstance()->executeS($sql);
-
-        if (empty($exported_orders)) {
-            return $output;
-        }
-
-        $updates_count = 0;
-        $skipped_count = 0;
-        $errors_count = 0;
-
-        foreach ($exported_orders as $order_data) {
-            try {
-                // Récupérer le statut depuis Rezomatic
-                $rz_status = $sc->getCommandesStatuts($softwareid, $order_data['api_orderid']);
-
-                if (!isset($rz_status->commandeState)) {
-                    continue;
-                }
-
-                // Récupérer le dernier statut
-                if (is_array($rz_status->commandeState)) {
-                    $last_state = end($rz_status->commandeState);
-                } else {
-                    $last_state = $rz_status->commandeState;
-                }
-
-                if (!$last_state || !isset($last_state->statut)) {
-                    continue;
-                }
-
-                // Utiliser nos associations configurées
-                $new_status = $this->getPrestashopStateFromRezoNumber($last_state->statut);
-
-                if (!$new_status) {
-                    continue; // Pas d'association configurée
-                }
-
-                // Vérifier l'état actuel
-                $order_obj = new Order($order_data['id_order']);
-                $current_ps_state = $order_obj->current_state;
-
-                if ($current_ps_state == $new_status) {
-                    $skipped_count++;
-                    continue; // Déjà à jour
-                }
-
-                // Tentative de mise à jour
-                $OrderHistory = new OrderHistory();
-                $OrderHistory->changeIdOrderState($new_status, $order_data['id_order']);
-
-                // VRAIE VÉRIFICATION : On regarde si l'état a changé en base
-                $order_obj_after = new Order($order_data['id_order']);
-                $final_state = $order_obj_after->current_state;
-
-                if ($final_state == $new_status) {
-                    // Succès réel
-                    $updates_count++;
-                    $rezomatic_label = $this->getRezoStateLabelFromNumber($last_state->statut);
-                    $output .= 'Mise à jour statut commande ' . $order_data['id_order'] . ' : "' . $rezomatic_label . '" (' . $new_status . ")\n";
-                } else {
-                    // Échec réel
-                    $errors_count++;
-                    $output .= 'Erreur recuperation statut commande ' . $order_data['id_order'] . ' (' . $final_state . ")\n";
-                }
-            } catch (Exception $e) {
-                $errors_count++;
-                $output .= 'Erreur commande ' . $order_data['id_order'] . ': ' . $e->getMessage() . "\n";
-            }
-        }
-
-        // Résumé uniquement si il y a eu des actions
-        if ($updates_count > 0 || $errors_count > 0) {
-            $output .= 'Statuts mis a jour : ' . $updates_count;
-            if ($errors_count > 0) {
-                $output .= ' (erreurs : ' . $errors_count . ')';
-            }
-            $output .= "\n";
-        }
-
-        return $output;
     }
 
     /**
@@ -3817,192 +3630,6 @@ class PfProductImporter extends Module
     }
 
     /**
-     * hookDisplayShoppingCart function.
-     * Mise a jour des stocks a l'affichage du panier
-     *
-     * @param mixed $params
-     *
-     * @return void
-     */
-
-    public function hookDisplayShoppingCart($params)
-    {
-        // Récupérer le contexte
-        $context = Context::getContext();
-        // Vérifier si un client est connecté pour la mise a jour des bons
-        if ($context->customer->isLogged()) {
-            $output = CustomerVccsv::loyaltySync($context->customer->id, $context->customer->email);
-            self::mylog($output);
-        }
-        // Mise a jour des stocks ?
-        if (Configuration::get('PI_ALLOW_STOCKIMPORT') == 1) {
-            $output = $this->stockSyncCron();
-            self::mylog($output);
-        }
-        // $output = CustomerVccsv::loyaltySync($id_customer, $email_customer);
-    }
-
-    /** Utilitaire : calcule l’URL Rezomatic ou '' */
-    public function getRezomaticInvoiceUrl($orderId)
-    {
-        $orderId = (int)$orderId;
-        if ($orderId <= 0) return '';
-
-        try {
-            $rezomaticId = \Db::getInstance()->getValue(
-                'SELECT api_orderid FROM ' . _DB_PREFIX_ . 'pfi_order_apisync WHERE system_orderid=' . (int)$orderId
-            );
-
-            @file_put_contents(
-                _PS_ROOT_DIR_ . '/rezomatic_debug.log',
-                '[' . date('Y-m-d H:i:s') . "] getUrl id_order={$orderId} api_orderid=" . ($rezomaticId ?: 'AUCUN') . "\n",
-                FILE_APPEND
-            );
-
-            if (!$rezomaticId) return '';
-
-            $feedurl    = (string)\Configuration::get('SYNC_CSV_FEEDURL');
-            $softwareId = (string)\Configuration::get('PI_SOFTWAREID');
-            if (!$feedurl || !$softwareId) return '';
-
-            $sc = new \SoapClient($feedurl, [
-                'connection_timeout' => 10,
-                'exceptions' => true,
-                'cache_wsdl' => WSDL_CACHE_NONE,
-                'stream_context' => stream_context_create(['http' => ['timeout' => 15]]),
-            ]);
-            $result = $sc->getCommandesStatuts($softwareId, (int)$rezomaticId);
-
-            $states = [];
-            if (is_object($result) && isset($result->commandeState)) {
-                $states = is_array($result->commandeState) ? $result->commandeState : [$result->commandeState];
-            } elseif (is_array($result)) {
-                $states = $result;
-            }
-            if (!$states) return '';
-
-            usort($states, function ($a, $b) {
-                $ta = isset($a->timestamp) ? strtotime($a->timestamp) : 0;
-                $tb = isset($b->timestamp) ? strtotime($b->timestamp) : 0;
-                return $tb <=> $ta;
-            });
-
-            foreach ($states as $st) {
-                if ((int)($st->statut ?? 0) === 2 && !empty($st->urlInvoice)) {
-                    @file_put_contents(
-                        _PS_ROOT_DIR_ . '/rezomatic_debug.log',
-                        '[' . date('Y-m-d H:i:s') . "] getUrl FOUND {$st->urlInvoice}\n",
-                        FILE_APPEND
-                    );
-                    return (string)$st->urlInvoice;
-                }
-            }
-        } catch (\Throwable $e) {
-            @file_put_contents(
-                _PS_ROOT_DIR_ . '/rezomatic_debug.log',
-                '[' . date('Y-m-d H:i:s') . "] getUrl ERROR " . $e->getMessage() . "\n",
-                FILE_APPEND
-            );
-        }
-        return '';
-    }
-
-    public function hookActionDispatcher($params)
-    {
-        $uri = $_SERVER['REQUEST_URI'] ?? '';
-
-        // ===== BO : Routes Symfony =====
-        if (preg_match('#/admin[^/]*/(?:index\.php/)?sell/orders/(\d+)/generate-invoice-pdf#', $uri, $m)) {
-            $orderId = (int)$m[1];
-
-            if ($orderId > 0) {
-                // Rediriger vers le contrôleur FO qui fonctionne
-                $foUrl = $this->context->shop->getBaseURL(true) .
-                    'index.php?controller=pdf-invoice&id_order=' . $orderId;
-
-                if ($foUrl) {
-                    // ouvrir dans un nouvel onglet + revenir a l’historique
-                    $back = isset($_SERVER['HTTP_REFERER']) && $_SERVER['HTTP_REFERER']
-                        ? (string)$_SERVER['HTTP_REFERER']
-                        : $this->context->link->getPageLink('history', true);
-
-                    header('Content-Type: text/html; charset=utf-8');
-
-                    $invoice = htmlspecialchars($foUrl, ENT_QUOTES, 'UTF-8');
-                    $backUrl = htmlspecialchars($back, ENT_QUOTES, 'UTF-8');
-
-                    echo '<!doctype html><html><head><meta charset="utf-8"><title>Ouverture de la facture…</title></head><body>'
-                        . '<a id="rz" href="' . $invoice . '" target="_blank" rel="noopener">Ouvrir la facture</a>'
-                        . '<script>try{document.getElementById("rz").click();}catch(e){}'
-                        . 'setTimeout(function(){location.replace("' . $backUrl . '");},200);</script>'
-                        . '<noscript><p><a href="' . $invoice . '" target="_blank" rel="noopener">Ouvrir la facture</a></p>'
-                        . '<p>Ensuite revenez sur <a href="' . $backUrl . '">vos commandes</a>.</p></noscript>'
-                        . '</body></html>';
-                    exit;
-                }
-            }
-            return;
-        }
-
-        $isPdfInvoice = false;
-        if (
-            strtolower(Tools::getValue('controller', '')) === 'pdf-invoice' ||
-            strtolower(Tools::getValue('controller', '')) === 'pdfinvoice'
-        ) {
-            $isPdfInvoice = true;
-        }
-
-        if ($isPdfInvoice) {
-            $orderId = (int)Tools::getValue('id_order');
-
-            if ($orderId > 0) {
-                $url = $this->getRezomaticInvoiceUrl($orderId);
-                if ($url) {
-                    header('Location: ' . $url, true, 302);
-                    exit;
-                }
-            }
-        }
-    }
-
-    private function rezomaticFoInvoiceScript(): string
-    {
-        return <<<'HTML'
-<script>
-document.addEventListener('DOMContentLoaded', function(){
-  // Forcer l’ouverture des factures FO dans un nouvel onglet
-  document.querySelectorAll('a[href*="controller=pdf-invoice"], a[href$="/pdf-invoice"], a[href*="/pdf-invoice?"]')
-    .forEach(function(a){
-      a.setAttribute('target','_blank');
-      a.setAttribute('rel','noopener');
-    });
-});
-</script>
-HTML;
-    }
-
-    public function hookDisplayHeader($params)
-    {
-        // Verifie si on est sur la page panier
-        $controller = Tools::getValue('controller');
-        if ($controller === 'cart' || $controller === 'order') {
-            $output = $this->hookDisplayShoppingCart($params);
-            $this->mylog($output);
-        }
-        if (isset($this->context->controller) && $this->context->controller) {
-            $controller = $this->context->controller;
-            if (is_object($controller)) {
-                $controllername = $controller->php_self ?? '';
-                if (is_string($controllername) && in_array($controllername, ['order-confirmation', 'history'])) {
-                    return $this->rezomaticFoInvoiceScript();
-                }
-            }
-        }
-        return '';
-    }
-
-
-    /**
      * Sauvegarde les associations des etats de commandes
      * 
      * @return bool
@@ -4054,14 +3681,13 @@ HTML;
         $id_lang = $this->context->language->id;
 
         $states = Db::getInstance()->executeS('
-        SELECT os.id_order_state as id_state, osl.name 
-        FROM ' . _DB_PREFIX_ . 'order_state os
-        LEFT JOIN ' . _DB_PREFIX_ . 'order_state_lang osl 
-            ON (os.id_order_state = osl.id_order_state AND osl.id_lang = ' . (int)$id_lang . ')
-        WHERE os.deleted = 0
-        ORDER BY osl.name ASC
-    ');
-
+            SELECT os.id_order_state as id_state, osl.name 
+            FROM ' . _DB_PREFIX_ . 'order_state os
+            LEFT JOIN ' . _DB_PREFIX_ . 'order_state_lang osl 
+                ON (os.id_order_state = osl.id_order_state AND osl.id_lang = ' . (int)$id_lang . ')
+            WHERE os.deleted = 0
+            ORDER BY osl.name ASC
+        ');
         return $states ?: [];
     }
 

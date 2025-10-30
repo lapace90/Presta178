@@ -174,10 +174,8 @@ class OrderVccsv extends Vccsv
                         $output .= "Ajout frais de port $shippingamount \n";
                         // Ref.
                         $sc->addNote($softwareid, $neworderid, 'Ref. ' . $order->reference);
-                        
                         // Payment - Conversion via les mappings configurés
                         $paymentmethod = self::convertPaymentToRezomatic($order->payment);
-
                         $sc->addModeReglement($softwareid, $neworderid, $api_customerid, $paymentmethod, $pdv);
                         $output .= "Ajout mode de reglement $paymentmethod \n";
                         $array_data = [

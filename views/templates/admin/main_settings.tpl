@@ -32,6 +32,11 @@
                     Général
                 </a>
             </li>
+            <li role="presentation" class="{if $active_tab == 'mapping'}active{/if}">
+                <a href="#mapping_tab" aria-controls="mapping" role="tab" data-toggle="tab">
+                    Correspondances
+                </a>
+            </li>
             <li role="presentation" class="{if $active_tab == 'catalog'}active{/if}">
                 <a href="#catalog_tab" aria-controls="catalog" role="tab" data-toggle="tab">
                     Catalogue
@@ -40,11 +45,6 @@
             <li role="presentation" class="{if $active_tab == 'stock'}active{/if}">
                 <a href="#stock_tab" aria-controls="stock" role="tab" data-toggle="tab">
                     Stock
-                </a>
-            </li>
-            <li role="presentation" class="{if $active_tab == 'mapping'}active{/if}">
-                <a href="#mapping_tab" aria-controls="mapping" role="tab" data-toggle="tab">
-                    Correspondances
                 </a>
             </li>
             <li role="presentation" class="{if $active_tab == 'customer'}active{/if}">
@@ -135,7 +135,7 @@
                     <div role="tabpanel" class="tab-pane active" id="fields_mapping">
                         <div class="form-section">
                             {if isset($raw_products_arr) && is_array($raw_products_arr)}
-                                {include file="module:pfproductimporter/views/templates/hook/buildmappingfieldsform.tpl"}
+                                {include file="module:pfproductimporter/views/templates/admin/mapping_fields.tpl"}
                             {else}
                                 <p>Aucun champ disponible.</p>
                             {/if}
@@ -146,7 +146,7 @@
                     <div role="tabpanel" class="tab-pane" id="category_mapping">
                         <div class="form-section">
                             {if isset($final_products_arr) && is_array($final_products_arr)}
-                                {include file="module:pfproductimporter/views/templates/hook/mappingcategoryform.tpl"}
+                                {include file="module:pfproductimporter/views/templates/admin/mapping_category.tpl"}
                             {else}
                                 <p>Aucune catégorie disponible.</p>
                             {/if}
@@ -156,14 +156,14 @@
                     <!-- Sous-onglet States Mapping -->
                     <div role="tabpanel" class="tab-pane" id="states_mapping">
                         <div class="form-section">
-                            {include file="module:pfproductimporter/views/templates/hook/mapStatesOrder.tpl"}
+                            {include file="module:pfproductimporter/views/templates/admin/mapping_states.tpl"}
                         </div>
                     </div>
 
                     <!-- Sous-onglet Payment -->
                     <div role="tabpanel" class="tab-pane {if $active_tab == 'payment'}active{/if}" id="payment_tab">
                         <div class="form-section">
-                            {include file="module:pfproductimporter/views/templates/admin/payment_settings.tpl"}
+                            {include file="module:pfproductimporter/views/templates/admin/mapping_payment.tpl"}
                         </div>
                     </div>
                 </div>
@@ -174,7 +174,7 @@
                 {include file="module:pfproductimporter/views/templates/admin/customer_settings.tpl"}
                 <div class="panel-footer">
                     <button type="submit" name="SubmitSaveMainSettings" class="btn btn-default pull-right">
-                        <i class="process-icon-save"></i> Enregistrer paramètres clients
+                        <i class="process-icon-save"></i> Sauvegarder les paramètres
                     </button>
                 </div>
             </div>
@@ -184,7 +184,7 @@
                 {include file="module:pfproductimporter/views/templates/admin/order_settings.tpl"}
                 <div class="panel-footer">
                     <button type="submit" name="SubmitExportorder" class="btn btn-default pull-right">
-                        <i class="process-icon-save"></i> Exporter les commandes
+                        <i class="process-icon-save"></i> Sauvegarder les paramètres
                     </button>
                 </div>
             </div>

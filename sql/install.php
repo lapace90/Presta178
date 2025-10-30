@@ -32,6 +32,7 @@ $sql[] = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'pfi_order_apisync` (
   `id` int(6) NOT NULL AUTO_INCREMENT,
   `system_orderid` int(7) NOT NULL,
   `api_orderid` int(7) NOT NULL,
+  `urlInvoice` varchar(200) NOT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=' . _MYSQL_ENGINE_ . ' DEFAULT CHARSET=utf8;';
 

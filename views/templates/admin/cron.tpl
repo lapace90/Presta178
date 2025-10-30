@@ -38,7 +38,7 @@
         <div class="col-lg-9">
             <a href="{$cron_url}" target="_blank" type="button" class="btn btn-primary" id="run-cron-task">Lancer</a>
             <p class="help-block">
-                Vous pouvez lancer la tâche CRON manuellement pour mettre à jour les produits immédiatement.
+                Vous pouvez lancer la tâche CRON de synchronisation manuellement en cliquant sur ce bouton.
             </p>
         </div>
     </div>

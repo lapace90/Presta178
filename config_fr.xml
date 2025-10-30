@@ -2,7 +2,7 @@
 <module>
     <name>pfproductimporter</name>
     <displayName><![CDATA[Synchronisation Rezomatic TGM]]></displayName>
-    <version><![CDATA[2.7.0]]></version>
+    <version><![CDATA[2.7.2]]></version>
     <description><![CDATA[Synchronisation avec le logiciel de caisse et de gestion Rezomatic de TGM]]></description>
     <author><![CDATA[Definima/TGM]]></author>
     <tab><![CDATA[migration_tools]]></tab>

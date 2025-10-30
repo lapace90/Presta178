@@ -27,14 +27,4 @@
         </div>
     </div>
 
-    <!-- Lancer la tâche CRON manuellement -->
-    <div class="form-group">
-        <label class="control-label col-lg-3">Lancer la tâche CRON manuellement</label>
-        <div class="col-lg-9">
-            <a href="{$cron_url}" target="_blank" type="button" class="btn btn-primary" id="run-cron-task">Lancer</a>
-            <p class="help-block">
-                Vous pouvez lancer la tâche CRON manuellement pour mettre à jour les produits immédiatement.
-            </p>
-        </div>
-    </div>
 </div>

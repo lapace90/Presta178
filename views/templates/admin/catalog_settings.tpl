@@ -7,7 +7,7 @@
 
             <!-- Activer l'import de produits -->
             <div class="form-group">
-                <label class="control-label col-lg-4">Activer l'import de produits</label>
+                <label class="control-label col-lg-4">Import des produits</label>
                 <div class="col-lg-8">
                     <span class="switch prestashop-switch fixed-width-lg">
                         <input type="radio" name="PI_ALLOW_PRODUCTIMPORT" id="PI_ALLOW_PRODUCTIMPORT_on" value="1"
@@ -26,7 +26,7 @@
 
             <!-- Activer l'import d'images -->
             <div class="form-group">
-                <label class="control-label col-lg-4">Activer l'import d'images produit</label>
+                <label class="control-label col-lg-4">Import des images produits</label>
                 <div class="col-lg-8">
                     <span class="switch prestashop-switch fixed-width-lg">
                         <input type="radio" name="PI_ALLOW_PRODUCTIMAGEIMPORT" id="PI_ALLOW_PRODUCTIMAGEIMPORT_on"
@@ -42,7 +42,7 @@
 
             <!-- Activer la mise à jour des designations -->
             <div class="form-group">
-                <label class="control-label col-lg-4">Activer la mise à jour des designations</label>
+                <label class="control-label col-lg-4">Mise à jour des désignations</label>
                 <div class="col-lg-8">
                     <span class="switch prestashop-switch fixed-width-lg">
                         <input type="radio" name="PI_UPDATE_DESIGNATION" id="PI_UPDATE_DESIGNATION_on" value="1"
@@ -61,7 +61,7 @@
 
             <!-- Activer les produits importes -->
             <div class="form-group">
-                <label class="control-label col-lg-4">Activer les produits importes</label>
+                <label class="control-label col-lg-4">Activer les produits importés</label>
                 <div class="col-lg-8">
                     <span class="switch prestashop-switch fixed-width-lg">
                         <input type="radio" name="PI_ACTIVE" id="PI_ACTIVE_on" value="1"
@@ -82,7 +82,7 @@
 
             <!-- Activer l'export de produits -->
             <div class="form-group">
-                <label class="control-label col-lg-4">Activer l'export de produits</label>
+                <label class="control-label col-lg-4">Export de produits</label>
                 <div class="col-lg-8">
                     <span class="switch prestashop-switch fixed-width-lg">
                         <input type="radio" name="PI_ALLOW_PRODUCTEXPORT" id="PI_ALLOW_PRODUCTEXPORT_on" value="1"
@@ -99,7 +99,7 @@
 
             <!-- Activer l'export de categories -->
             <div class="form-group">
-                <label class="control-label col-lg-4">Activer l'export de categories</label>
+                <label class="control-label col-lg-4">Export de categories</label>
                 <div class="col-lg-8">
                     <span class="switch prestashop-switch fixed-width-lg">
                         <input type="radio" name="PI_ALLOW_CATEGORYEXPORT" id="PI_ALLOW_CATEGORYEXPORT_on" value="1"
@@ -117,7 +117,7 @@
             </div>
 
             <div class="form-group">
-                <label class="control-label col-lg-4">Exporter les attributs dans la désignation</label>
+                <label class="control-label col-lg-4">Export des attributs dans la désignation</label>
                 <div class="col-lg-8">
                     <span class="switch prestashop-switch fixed-width-lg">
                         <input type="radio" name="PI_EXPORT_ATTRIBUTES_IN_DESIGNATION"
@@ -132,7 +132,7 @@
                         <a class="slide-button btn"></a>
                     </span>
                     <p class="help-block">
-                        Ajouter les attributs (taille, couleur) dans la désignation lors de l'export vers Rezomatic
+                        Ajouter les attributs (taille, couleur, etc) dans la désignation lors de l'export vers Rezomatic
                     </p>
                 </div>
             </div>
@@ -197,7 +197,7 @@
 
 <!-- Activer l'import des soldes -->
 <div class="form-group">
-    <label class="control-label col-lg-3">Activer l'import des soldes</label>
+    <label class="control-label col-lg-3">Import des soldes</label>
     <div class="col-lg-8">
         <span class="switch prestashop-switch fixed-width-lg">
             <input type="radio" name="PI_ALLOW_PRODUCTSALESIMPORT" id="PI_ALLOW_PRODUCTSALESIMPORT_on" value="1"
@@ -223,13 +223,13 @@
 
     {if $fields_value.PI_ALLOW_PRODUCTSALESIMPORT}
     <div class="form-group">
-        <label class="control-label col-lg-3">Synchronisation manuelle des soldes</label>
+        <label class="control-label col-lg-3">Import manuel des soldes</label>
         <div class="col-lg-8">
             <button type="button" id="openSalesModalBtn" class="btn btn-primary">
                 <i class="icon-refresh" style="padding-right: 4px;"></i> Synchroniser les soldes maintenant
             </button>
             <p class="help-block">
-                Synchronise immediatement les tarifs soldes depuis Rezomatic.
+                Synchronise immediatement les tarifs soldés depuis Rezomatic.
                 Normalement, cette synchronisation se fait automatiquement à minuit.
             </p>
         </div>

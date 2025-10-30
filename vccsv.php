@@ -135,7 +135,7 @@ class Vccsv
             'existing_mappings' => $existing_mappings,
         ]);
 
-        return $_this->display(_PS_MODULE_DIR_ . 'pfproductimporter/pfproductimporter.php', 'mappingcategoryform.tpl');
+        return $_this->display(_PS_MODULE_DIR_ . 'pfproductimporter/pfproductimporter.php', 'mapping_category.tpl');
     }
 
     public static function getFeedByVal($xml_catid, $feed_id)
@@ -267,26 +267,6 @@ class Vccsv
             $message = $pfProductImporter->displayError($message) . $message;
         }
 
-        // // Retour direct pour AJAX
-        // if ($isAjax) {
-        //     return $message;
-        // }
-
-        // Traitement normal pour non-AJAX
-        // $formatted_url = strstr($_SERVER['REQUEST_URI'], '&vc_mode= ', true);
-        // $vc_redirect = ($formatted_url != '') ? $formatted_url : $_SERVER['REQUEST_URI'];
-
-        $_this->smarty->assign([
-            'feed_id' => $feed_id,
-            'vcfeedurl' => $feedurl,
-            'fixcategory' => $fixcategory,
-            // 'vc_redirect' => $vc_redirect,
-            'base_url' => __PS_BASE_URI__,
-            'message' => $message,
-            'saved_count' => $saved_count
-        ]);
-
-        // return $_this->display(_PS_MODULE_DIR_ . 'pfproductimporter/pfproductimporter.php', 'savecategorymappings.tpl');
         return $message;
     }
 
@@ -452,131 +432,6 @@ class Vccsv
         }
 
         return 'Mappings sauvegardés (' . count($ordreImport) . ' mappings) dans l\'ordre d\'import';
-    }
-
-
-    /**
-     * buildMappingFieldsForm function.
-     *
-     * @static
-     *
-     * @return void
-     *              buildmappingfieldsform
-     * 
-     * On s'en sert pas pour l'instant
-     */
-    public static function buildMappingFieldsForm($_this)
-    {
-        $feedurl = Configuration::get('SYNC_CSV_FEEDURL');
-        $softwareid = Configuration::get('PI_SOFTWAREID');
-        $timestamp = date('Y-m-d H:i:s', mktime(0, 0, 0, date('n'), date('j'), date('Y')));
-
-        // Champs produits de base
-        $productfields = self::getxiProductFields();
-        if (!is_array($productfields)) {
-            $productfields = [];
-        }
-        $productfields[] = 'image_url';
-        $productfields[] = 'product_url';
-        $productfields[] = 'manufacturer';
-        $productfields[] = 'available_date';
-        $productfields[] = 'combination_reference';
-
-        $mylist = [
-            'name',
-            'id_category_default',
-            'price',
-            'wholesale_price',
-            'reference',
-            'ean13',
-            'upc',
-            'active',
-            'description',
-            'description_short',
-            'image_url',
-            'quantity',
-            'available',
-            'product_url',
-            'manufacturer',
-            'retail_price_new',
-            'ecotax',
-            'weight',
-            'condition',
-            'id_tax_rules_group',
-            'available_date',
-            'combination_reference',
-        ];
-
-        $newproductfields = [];
-        $newproductfields[] = 'Ignore Field';
-        foreach ($productfields as $pr) {
-            if (in_array($pr, $mylist)) {
-                $newproductfields[] = $pr;
-            }
-        }
-
-        $raw_products_arr = [];
-        if (Tools::substr($feedurl, -5) == '.wsdl' || Tools::substr($feedurl, -4) == '.csv') {
-            $sc = new SoapClient($feedurl, ['keep_alive' => false]);
-
-            $art = $sc->getNewArticles($softwareid, $timestamp, 0);
-
-            if (!empty($art->article)) {
-                $raw_products_arr = [];
-                if (is_array($art->article)) {
-                    $articles = $art->article;
-                } else {
-                    $articles = [$art->article];
-                }
-                foreach ($articles as $col) {
-                    $raw_products_arr = (array) $col;
-                    break;
-                }
-                $tmp_arr = [];
-                foreach ($raw_products_arr as $K => $t) {
-                    if ($t == 0) {
-                        $tmp_arr[$K] = $K;
-                    } else {
-                        $tmp_arr[$K] = $K;
-                    }
-                }
-
-                $raw_products_arr = $tmp_arr;
-            } else {
-                return $_this->display(
-                    _PS_MODULE_DIR_ . 'pfproductimporter/pfproductimporter.php',
-                    'buildmappingfieldsform_error.tpl'
-                );
-            }
-        }
-        // $formatted_url = strstr($_SERVER['REQUEST_URI'], '&vc_mode= ', true);
-        // $vc_redirect = ($formatted_url != '') ? $formatted_url : $_SERVER['REQUEST_URI'];
-
-        /**
-         * @edit Definima
-         * Liste des groupes d'attributs pour permettre de mapper les champs "taille" et "couleur"
-         */
-        $attrgrp = ['Ignore Field'];
-        if (Combination::isFeatureActive()) {
-            $liste_attrgrp = AttributeGroup::getAttributesGroups(Context::getContext()->cookie->id_lang);
-            foreach ($liste_attrgrp as $attr) {
-                $attrgrp[$attr['id_attribute_group']] = $attr['name'];
-            }
-        }
-
-        $_this->smarty->assign([
-            // 'vc_redirect' => $vc_redirect,
-            'newproductfields' => $newproductfields,
-            'raw_products_arr' => $raw_products_arr,
-            'feedurl' => $feedurl,
-            'base_url' => __PS_BASE_URI__,
-            'attrgrp' => $attrgrp,
-        ]);
-
-        return $_this->display(
-            _PS_MODULE_DIR_ . 'pfproductimporter/pfproductimporter.php',
-            'buildmappingfieldsform.tpl'
-        );
     }
 
     public static function getfields($key)
