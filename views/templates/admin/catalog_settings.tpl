@@ -277,77 +277,77 @@
 
 <script>
     function startDirectImport() {
+        console.log('=== startDirectImport APPELÉE ===');
         $('#confirmModal').fadeOut();
         $('#progress-bars-container').show();
         $('#import-progress-section').show();
-        $('#import-status').text('Import en cours...');
+        $('#import-status').text('Récupération des articles...');
 
-        // Animation progressive de la barre
-        let progress = 0;
-        let progressInterval = setInterval(function() {
-            progress += Math.random() * 3 + 1; // Progression aleatoire mais ralentie
+        var currentTimestamp = null;
+        var totalArticles = 0;
 
-            if (progress > 95) {
-                progress = 95; // On s'arrête à 95% en attendant la reponse
-            }
+        function fetchArticles() {
+            $.ajax({
+                url: window.location.href,
+                type: 'POST',
+                data: {
+                    'direct_import_now': 1,
+                    'ajax_mode': 1,
+                    'timestamp': currentTimestamp,
+                    'token': $('input[name="token"]').val()
+                },
+                success: function(response) {
+                    try {
+                        var data = JSON.parse(response.trim());
 
-            $('#import-progress').css('width', progress + '%');
-            $('#import-status').text('Import en cours... ' + Math.round(progress) + '%');
-        }, 200);
+                        totalArticles += data.count;
+                        $('#import-status').text('Articles récupérés : ' + totalArticles);
 
-        $.ajax({
-            url: window.location.href,
-            type: 'POST',
-            data: {
-                'direct_import_now': 1,
-                'token': $('input[name="token"]').val()
-            },
-            success: function(data) {
-                clearInterval(progressInterval);
+                        // Ajouter une progression visuelle (chaque appel = +20%)
+                        var currentWidth = parseInt($('#import-progress').css('width')) || 0;
+                        var newWidth = Math.min(currentWidth + 15, 90); // Max 90% avant la fin
+                        $('#import-progress').css('width', newWidth + '%');
 
-                var importData = data.split('=== IMPORT PRODUITS ===');
-                if (importData.length > 1) {
-                    var resultText = '=== IMPORT PRODUITS ===' + importData[importData.length - 1];
-
-                    // Extraire les statistiques du resume
-                    var produitsTraitesMatch = resultText.match(/Produits traites: (\d+)/);
-                    var produitsCreesMatch = resultText.match(/Produits crees: (\d+)/);
-                    var produitsMisAJourMatch = resultText.match(/Produits mis a jour: (\d+)/);
-                    var declinaisonsCreesMatch = resultText.match(/Declinaisons creees: (\d+)/);
-
-                    var produitsTraites = produitsTraitesMatch ? produitsTraitesMatch[1] : '?';
-                    var produitsCreesCount = produitsCreesMatch ? produitsCreesMatch[1] : '0';
-                    var produitsMisAJour = produitsMisAJourMatch ? produitsMisAJourMatch[1] : '0';
-                    var declinaisonsCount = declinaisonsCreesMatch ? declinaisonsCreesMatch[1] : '0';
-
-                    $('#import-progress').css('width', '100%');
-
-                    var message = '<strong>✅ Import termine !</strong><br>';
-                    message += produitsTraites + ' produits traites<br>';
-
-                    if (produitsCreesCount > 0) {
-                        message += produitsCreesCount + ' produits crees<br>';
+                        if (data.continue) {
+                            currentTimestamp = data.timestamp;
+                            fetchArticles();
+                        } else {
+                            $('#import-status').text('Création des produits...');
+                            importProducts();
+                        }
+                    } catch (e) {
+                        console.error('Erreur parsing JSON:', e, response);
+                        $('#import-status').html('❌ Erreur lors de la récupération');
                     }
-                    if (produitsMisAJour > 0) {
-                        message += produitsMisAJour + ' produits mis à jour<br>';
-                    }
-                    if (declinaisonsCount > 0) {
-                        message += declinaisonsCount + ' declinaisons creees';
-                    }
-
-                    $('#import-status').html(message);
-                } else {
-                    $('#import-progress').css('width', '100%');
-                    $('#import-status').html('✅ Import termine !');
+                },
+                error: function(xhr, status, error) {
+                    console.error('Erreur AJAX:', status, error);
+                    $('#import-status').html('❌ Erreur: ' + status);
                 }
-            },
-            error: function(xhr, status, error) {
-                clearInterval(progressInterval); // Arrêter l'animation
-                console.error('Erreur AJAX:', status, error);
-                $('#import-progress').css('width', '100%');
-                $('#import-status').html('❌ Erreur: ' + status);
-            }
-        });
+            });
+        }
+
+        function importProducts() {
+            // Appeler finalimport
+            $.ajax({
+                url: window.location.href,
+                type: 'POST',
+                data: {
+                    'direct_import_now': 1,
+                    'token': $('input[name="token"]').val()
+                },
+                success: function(data) {
+                    $('#import-progress').css('width', '100%');
+                    $('#import-status').html('✅ Import terminé ! ' + totalArticles + ' articles traités');
+                },
+                error: function(xhr, status, error) {
+                    $('#import-status').html('❌ Erreur lors de l\'import');
+                }
+            });
+        }
+
+        // Démarrer la récupération
+        fetchArticles();
     }
 
     function startDirectExport() {

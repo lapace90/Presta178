@@ -116,45 +116,39 @@ class PfProductImporter extends Module
         if (Tools::isSubmit('direct_import_now')) {
             $feedurl = Configuration::get('SYNC_CSV_FEEDURL');
             $softwareid = Configuration::get('PI_SOFTWAREID');
-            $debut = time(); // Timer de debut
+            $debut = time();
 
             try {
+                // MODE AJAX : un seul appel de récupération
+                if (Tools::getValue('ajax_mode')) {
+                    $timestamp = Tools::getValue('timestamp');
+                    $result = $this->saveTestTmpData(0, 0, $timestamp);
+                    die($result);
+                }
+
+                // MODE NORMAL : comme avant (tout d'un coup)
                 $sc = new SoapClient($feedurl, ['keep_alive' => false]);
                 $timestamp_old = '2020-01-01 00:00:00';
                 $art = $sc->getNewArticles($softwareid, $timestamp_old);
 
                 if (!empty($art->article)) {
                     $articles = is_array($art->article) ? $art->article : [$art->article];
-
-                    // LOG : Debut import manuel
                     $log_output = '<u>IMPORT MANUEL - ' . count($articles) . ' articles a traiter</u>' . "\n";
 
                     $this->saveTestTmpData(0, $articles);
                     $this->countimport();
-
-                    // IMPORT PRODUITS
                     $result = $this->finalimport('', '', 0);
                     $log_output .= $result;
-
-                    // IMPORT LOTS  
                     $lotOutput = ProductVccsv::importLot();
                     $log_output .= $lotOutput;
 
-                    // TIMER FINAL comme le cron
                     $fin = time();
                     $log_output .= "\n" . 'Import manuel termine en ' . ($fin - $debut) . 's.' . "\n";
-
-                    // SAUVEGARDER dans les logs
                     $this->mylog($log_output);
 
                     return $output . $result;
-                } else {
-                    // Aucun article
-                    $this->mylog("Import manuel : Aucun article trouve");
-                    return "Aucun article trouve";
                 }
             } catch (Exception $e) {
-                // Erreur
                 $this->mylog("ERREUR Import manuel : " . $e->getMessage());
                 return "Erreur : " . $e->getMessage();
             }
@@ -537,19 +531,18 @@ class PfProductImporter extends Module
             $id_order = (int)$invoice->id_order;
             // Vérification existance de la facture Rezomatic
             $factRezo = Db::getInstance()->getValue('select urlInvoice from ' . _DB_PREFIX_ .
-                    'pfi_order_apisync where system_orderid=' . (int) $id_order);
-            if(!empty($factRezo))
-            {
-                if(!Tools::usingSecureMode())
+                'pfi_order_apisync where system_orderid=' . (int) $id_order);
+            if (!empty($factRezo)) {
+                if (!Tools::usingSecureMode())
                     $factRezo = str_replace('https://', 'http://', $factRezo);
                 $pdfContent = @file_get_contents($factRezo);
-                header ("Content-disposition: attachment; filename=invoice-".$id_order.".pdf");
-                header ("Content-Type: application/force-download");
-                header ("Content-Transfer-Encoding: binary\n");
-                header ("Content-Length: ".strlen($pdfContent));
-                header ("Pragma: no-cache");
-                header ("Cache-Control: no-store, no-cache, must-revalidate, post-check=0, pre-check=0");
-                header ("Expires: 0");
+                header("Content-disposition: attachment; filename=invoice-" . $id_order . ".pdf");
+                header("Content-Type: application/force-download");
+                header("Content-Transfer-Encoding: binary\n");
+                header("Content-Length: " . strlen($pdfContent));
+                header("Pragma: no-cache");
+                header("Cache-Control: no-store, no-cache, must-revalidate, post-check=0, pre-check=0");
+                header("Expires: 0");
                 echo $pdfContent;
                 exit;
             }
@@ -2821,7 +2814,7 @@ class PfProductImporter extends Module
      *
      * @return void
      */
-    public function saveTestTmpData($id, $Submitlimit)
+    public function saveTestTmpData($id, $Submitlimit, $timestamp = null)
     {
         Configuration::updateValue('SYNC_CSV_EMAILID', 'webmaster@tgmultimedia.com');
         $softwareid = Configuration::get('PI_SOFTWAREID');
@@ -2831,17 +2824,26 @@ class PfProductImporter extends Module
         $feed_id = 1;
         $feedurl = Configuration::get('SYNC_CSV_FEEDURL');
 
-        // Recuperation des correspondances de champs
+        // Si pas de timestamp fourni, c'est le premier appel
+        if (empty($timestamp)) {
+            if ($id == 3) {
+                $timestamp = Configuration::get('PI_LAST_CRON');
+            } else {
+                $timestamp = '2020-01-01 00:00:00';
+            }
+            // Vider la table temp au premier appel
+            Db::getInstance()->execute('DELETE FROM ' . _DB_PREFIX_ . 'pfi_import_tempdata_csv');
+        }
+
+        // get fields from pfi_import_feed_fields_csv
         $i = 0;
         $tabledata = '';
         $t_col = [];
         $fldarray = [];
         $t_col[] = 'feed_id';
 
-        $correspondances = Db::getInstance(_PS_USE_SQL_SLAVE_)->ExecuteS(
-            'SELECT `system_field`, xml_field FROM `' . _DB_PREFIX_ .
-                'pfi_import_feed_fields_csv` WHERE feed_id=' . (int) $feed_id . ' ORDER BY ID'
-        );
+        $correspondances = Db::getInstance(_PS_USE_SQL_SLAVE_)->ExecuteS('select `system_field`, xml_field  from `' .
+            _DB_PREFIX_ . 'pfi_import_feed_fields_csv` where feed_id=' . (int) $feed_id . ' ORDER BY ID');
 
         foreach ($correspondances as $val) {
             ++$i;
@@ -2852,118 +2854,87 @@ class PfProductImporter extends Module
         $tabledata .= $this->balise('/tr');
 
         if (Tools::substr($feedurl, -5) == '.wsdl' || Tools::substr($feedurl, -4) == '.csv') {
-            // Vider la table temporaire au debut
-            Db::getInstance()->execute('DELETE FROM ' . _DB_PREFIX_ . 'pfi_import_tempdata_csv');
-
             $sc = new SoapClient($feedurl, ['keep_alive' => false]);
 
-            // Timestamp de depart
-            if ($id == 3) {
-                $current_timestamp = Configuration::get('PI_LAST_CRON');
-            } else {
-                $current_timestamp = '2020-01-01 00:00:00';
-            }
+            // Utiliser le timestamp fourni en paramètre
+            $art = $sc->getNewArticles($softwareid, $timestamp, 100);
 
-            $total_articles = 0;
-            $batch_count = 0;
-
-            // Boucle sur les batchs
-            do {
-                $batch_count++;
-                $this->mylog("Batch $batch_count : appel getNewArticles depuis $current_timestamp");
-
-                $art = $sc->getNewArticles($softwareid, $current_timestamp, 0);
-
-                if (empty($art->article)) {
-                    $this->mylog("Batch $batch_count : aucun article retourne. Fin de l'import.");
-                    break;
+            if (!empty($art->article)) {
+                $final_products_arr = [];
+                $i = 0;
+                if (is_array($art->article) && count($art->article)) {
+                    foreach ($art->article as $col) {
+                        $data = (array) $col;
+                        $tmp_arr = [];
+                        foreach ($data as $K => $t) {
+                            $tmp_arr[$K] = $t;
+                        }
+                        $final_products_arr[] = $tmp_arr;
+                    }
+                } else {
+                    $data = (array) $art->article;
+                    $tmp_arr = [];
+                    foreach ($data as $K => $t) {
+                        $tmp_arr[$K] = $t;
+                    }
+                    $final_products_arr[] = $tmp_arr;
                 }
-
-                // Conversion en tableau
-                $articles = is_array($art->article) ? $art->article : [$art->article];
-                $nb_articles = count($articles);
-                $total_articles += $nb_articles;
-
-                $this->mylog("Batch $batch_count : $nb_articles articles recuperes");
-
-                // Inserer ce batch dans la table temporaire
-                $this->insertArticlesBatch($articles, $correspondances, $fldarray, $t_col, $tabledata);
-
-                // IMPORTANT : le prochain timestamp = MAINTENANT
-                $current_timestamp = date('Y-m-d H:i:s');
-            } while (true);
-
-            $this->mylog("Import termine : $total_articles articles importes en $batch_count batch(s)");
-
-            if ($total_articles > 0 && $id != 3) {
-                // Retourner true pour continuer le processus
-                return true;
+            } else {
+                // Plus d'articles à importer
+                if ($id == 3) {
+                    return true;
+                }
+                return json_encode([
+                    'continue' => false,
+                    'count' => 0,
+                    'timestamp' => $timestamp
+                ]);
             }
-
-            return $total_articles > 0;
         }
 
-        return false;
-    }
-
-    /**
-     * Insere un batch d'articles dans la table temporaire
-     */
-    private function insertArticlesBatch($articles, $correspondances, $fldarray, $t_col, $tabledata)
-    {
-        $feed_id = 1;
         $i = 0;
         $tabledata .= $this->balise('tr');
-
         foreach ($correspondances as $val) {
             ++$i;
             $tabledata .= $this->balise('td') . $val['xml_field'] . $this->balise('/td');
-
             if ($val['system_field'] == 'description') {
                 $column = 'col' . $i;
-                Db::getInstance()->execute(
-                    'ALTER TABLE `' . _DB_PREFIX_ . 'pfi_import_tempdata_csv` CHANGE `' .
-                        pSQL($column) . '` `' . pSQL($column) . '` TEXT CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL'
-                );
+                Db::getInstance()->Execute('ALTER TABLE  `' . _DB_PREFIX_ . 'pfi_import_tempdata_csv` CHANGE  `' .
+                    pSQL($column) . '`  `' . pSQL($column) . '` TEXT CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL');
             }
         }
-
         $tabledata .= $this->balise('/tr');
 
-        // Conversion des articles
-        $final_products_arr = [];
-        foreach ($articles as $col) {
-            $data = (array) $col;
-            $tmp_arr = [];
-            foreach ($data as $K => $t) {
-                $tmp_arr[$K] = $t;
-            }
-            $final_products_arr[] = $tmp_arr;
-        }
-
-        // Insertion dans la table
+        $a = 0;
+        $b = 0;
         foreach ($final_products_arr as $val) {
+            $tabledata .= $this->balise('tr', true);
+
+            ++$a;
             $querycolarr = [$feed_id];
             $i = 1;
-
             foreach ($val as $key2 => $val2) {
                 if (in_array($key2, $fldarray)) {
-                    // Nettoyage selon le type de champ
                     if (!in_array($key2, ['des', 'images', 'description', 'taille', 'couleur'])) {
                         $val2 = preg_replace('/[^0-9A-Za-z :\.\(\)\?!\+&\,@_-]/i', '', $val2);
                     }
 
                     $valori = $val2;
-
-                    if (empty($val2)) {
-                        $valori = '0';
+                    ++$b;
+                    if (Tools::strlen($val2) > 100) {
+                        $val2 = Tools::substr(strip_tags($val2), 0, 100) . '...';
                     }
 
+                    if (empty($val2)) {
+                        $val2 = '...';
+                        $valori = '0';
+                    }
+                    $tabledata .= $this->balise('td') . $val2 . $this->balise('/td');
                     $querycolarr[] = '\'' . pSQL($valori) . '\'';
                 }
 
-                // Gestion speciale du poids manquant
                 if (($i == 9) && ($key2 != 'poids')) {
+                    $tabledata .= $this->balise('td') . 'Poids non fourni' . $this->balise('/td');
                     $querycolarr[] = '0';
                 }
                 ++$i;
@@ -2973,14 +2944,29 @@ class PfProductImporter extends Module
                 $querycolarr[] = '\'0\'';
             }
 
-            if (count($querycolarr) == count($t_col)) {
-                $query = 'INSERT INTO `' . _DB_PREFIX_ .
-                    'pfi_import_tempdata_csv`(' . implode(', ', array_map('pSQL', $t_col)) . ') ' .
-                    'VALUES (' . implode(', ', $querycolarr) . ')';
+            $query = 'insert into `' . _DB_PREFIX_ .
+                'pfi_import_tempdata_csv`(' . implode(', ', array_map('pSQL', $t_col)) . ') ' .
+                'values (' . implode(', ', $querycolarr) . ')';
 
+            if (count($querycolarr) == count($t_col)) {
                 Db::getInstance()->execute($query);
             }
+
+            $tabledata .= $this->balise('/tr');
         }
+
+        if ($id == 3) {
+            return true;
+        }
+
+        // Retourner JSON avec le nouveau timestamp
+        $next_timestamp = date('Y-m-d H:i:s');
+
+        return json_encode([
+            'continue' => true,
+            'count' => count($final_products_arr),
+            'timestamp' => $next_timestamp
+        ]);
     }
 
     /**
@@ -3525,13 +3511,13 @@ class PfProductImporter extends Module
         if (Configuration::get('PI_UPDATE_ORDER_STATUS') != '1') {
             return 'Mise a jour des statuts de commandes inactif.';
         }
-        
+
         $softwareid = Configuration::get('PI_SOFTWAREID');
         $feedurl = Configuration::get('SYNC_CSV_FEEDURL');
         $output = '';
 
         // Récupération des états de commande Prestashop liés aux commandes Rezomatic
-        for($i=1; $i<=5; $i++)
+        for ($i = 1; $i <= 5; $i++)
             $get_status_orders[] = $this->getPrestashopStateFromRezoNumber($i);
         // Récupération des statuts de commandes Rezomatic qui ont bougé depuis la dernière synchro
         try {
@@ -3546,7 +3532,7 @@ class PfProductImporter extends Module
                 }
                 $updates_count = 0;
                 $skipped_count = 0;
-                $errors_count = 0;                
+                $errors_count = 0;
                 // Pour chaque statut retourné
                 foreach ($statuts as $statut) {
                     if (isset($get_status_orders[$statut->statut])) {
@@ -3554,7 +3540,7 @@ class PfProductImporter extends Module
                         // récupération de l'id commande Prestashop
                         $orderid = Db::getInstance()->getValue('select system_orderid from ' . _DB_PREFIX_ .
                             'pfi_order_apisync where api_orderid=' . (int) $statut->commandeNum);
-                        if($orderid) {
+                        if ($orderid) {
                             $order = new Order($orderid);
                             // Statut déjà à jour ? on ne fait rien
                             if ($order->current_state == $new_status) {
@@ -3577,8 +3563,11 @@ class PfProductImporter extends Module
                                 $output .= 'Erreur recuperation statut commande ' . $orderid . ' (' . $order->current_state . ")\n";
                             }
                             // Mise à jour facture (si existante)
-                            if(!empty($statut->urlInvoice) && (Db::getInstance()->update('pfi_order_apisync', ['urlInvoice' => $statut->urlInvoice],
-                                    '`api_orderid` = ' . (int) $statut->commandeNum)))
+                            if (!empty($statut->urlInvoice) && (Db::getInstance()->update(
+                                'pfi_order_apisync',
+                                ['urlInvoice' => $statut->urlInvoice],
+                                '`api_orderid` = ' . (int) $statut->commandeNum
+                            )))
                                 $output .= 'Recuperation de la facture pour la commande ' . $orderid . "\n";
                         }
                     }
@@ -3592,8 +3581,7 @@ class PfProductImporter extends Module
                     $output .= "\n";
                 }
                 return $output;
-            }
-            else
+            } else
                 return "Aucun statut mis a jour.";
         } catch (Exception $e) {
             $output .= $e->getMessage() . "\n";
@@ -3892,5 +3880,5 @@ class PfProductImporter extends Module
             $this->mylog("Erreur lors de la creation du parent $product_reference : " . $e->getMessage());
             return false;
         }
-    }    
+    }
 }
